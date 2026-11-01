@@ -75,10 +75,7 @@ Phase 5 closes the current build plan. Further work is product work, not another
 ├── scripts/
 │   ├── fetch-icons.mjs      Regenerate icons.js from Reicon
 │   └── make-favicon.mjs     Regenerate favicon.svg from the Code icon
-├── .github/workflows/
-│   └── sonar.yml            SonarQube Cloud analysis on push and PR
 ├── _headers                 Cloudflare Pages headers
-├── sonar-project.properties SonarQube Cloud project key and scope
 ├── .gitignore               Local state and generated test artifacts
 ├── AGENTS.md                Agent instructions and antislop pointer
 ├── DESIGN.md                Visual direction and decision log
@@ -129,14 +126,11 @@ There is no automated test runner in the repository. The checks above use a head
 
 ## SonarQube Cloud
 
-Every push to `main` and every pull request triggers the workflow in `.github/workflows/sonar.yml`. The workflow runs the official SonarSource scanner against the static files and sends the result to SonarQube Cloud.
+SonarQube Cloud Automatic Analysis is enabled for the `eiaiproject_Kodingu` project. The Sonar GitHub integration analyzes every push without a repository workflow, build step, or `SONAR_TOKEN` secret. The first analysis covers commit `3554cbb`.
 
-- Organization: `eiaiproject`
-- Project key: `eiaiproject_Kodingu`
-- Token: the `SONAR_TOKEN` repository secret
-- Configuration: `sonar-project.properties`
+The analysis reads the HTML, CSS, and JavaScript in the repository. It does not run the browser checks or upload coverage.
 
-The scan does not run a build, install dependencies, or upload coverage. It reads the HTML, CSS, and JavaScript in the repository. `.wrangler` and the generated `assets/js/icons.js` are excluded from analysis.
+Do not add a CI scan while Automatic Analysis is enabled. Sonar rejects a CI scan with exit code 3 in that state. Change the analysis method in Sonar first, then add a workflow.
 
 A SonarQube Cloud run does not prove that a lesson, project, or challenge works in a browser. Keep the browser checks for changes to lesson content, the editor, or progress.
 
