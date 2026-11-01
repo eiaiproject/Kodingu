@@ -7,7 +7,6 @@ import {
   getProgress,
   icon,
   initChrome,
-  pluralize,
   progressBar,
   setPageTitle,
   toggleProjectRequirement,
@@ -121,6 +120,26 @@ function completedPanelMarkup(progress) {
   `;
 }
 
+function unfinishedPanelMarkup(checks) {
+  const ready = checks.size === project.requirements.length;
+  const hint = ready ? 'Ready when you are.' : 'Check every requirement before finishing.';
+  return `
+      <section class="finish-panel" id="finish-panel" aria-labelledby="finish-heading">
+        <h2 class="finish-title" id="finish-heading">Finish this project</h2>
+        <div class="finish-status">
+          <span id="finish-checks">${checks.size} of ${project.requirements.length} checked</span>
+          <span>Manual self-check</span>
+        </div>
+        <div class="finish-actions">
+          <button class="button button-primary" id="finish-project" type="button"${ready ? '' : ' disabled'}>
+            Finish project · +${project.xp} XP
+          </button>
+          <span class="finish-hint" id="finish-hint">${hint}</span>
+        </div>
+      </section>
+    `;
+}
+
 function renderMain() {
   if (!main || !project) return;
   const progress = getProgress();
@@ -133,23 +152,7 @@ function renderMain() {
       (item) => `<a href="lesson.html?course=${encodeURIComponent(item.course)}&amp;lesson=${encodeURIComponent(item.lesson)}">${escapeHtml(item.label)}</a>`
     )
     .join(' ');
-  const finishMarkup = completed
-    ? completedPanelMarkup(progress)
-    : `
-      <section class="finish-panel" id="finish-panel" aria-labelledby="finish-heading">
-        <h2 class="finish-title" id="finish-heading">Finish this project</h2>
-        <div class="finish-status">
-          <span id="finish-checks">${checks.size} of ${project.requirements.length} checked</span>
-          <span>Manual self-check</span>
-        </div>
-        <div class="finish-actions">
-          <button class="button button-primary" id="finish-project" type="button"${checks.size === project.requirements.length ? '' : ' disabled'}>
-            Finish project · +${project.xp} XP
-          </button>
-          <span class="finish-hint" id="finish-hint">${checks.size === project.requirements.length ? 'Ready when you are.' : 'Check every requirement before finishing.'}</span>
-        </div>
-      </section>
-    `;
+  const finishMarkup = completed ? completedPanelMarkup(progress) : unfinishedPanelMarkup(checks);
   const nextMarkup = next
     ? `<a class="lesson-nav-next" href="project.html?project=${encodeURIComponent(next.id)}"><span class="lesson-nav-label">Next project</span><span>${escapeHtml(next.title)}</span></a>`
     : '<a class="lesson-nav-next" href="projects.html"><span class="lesson-nav-label">Library</span><span>All projects</span></a>';
@@ -231,7 +234,7 @@ function renderMain() {
             <iframe id="project-frame" title="Preview of your project" sandbox=""></iframe>
           </div>
         </div>
-        <p class="editor-error" id="project-error" role="status" hidden></p>
+        <output class="editor-error" id="project-error" hidden></output>
       </div>
     </section>
 
@@ -276,9 +279,9 @@ function wireWorkspace() {
   const finishHint = document.querySelector('#finish-hint');
   const checklist = document.querySelector('.checklist');
 
-  const runPreview = () => {
+  const runPreview = async () => {
     if (!editor || !frame) return;
-    const result = buildProjectPreview(editor.value);
+    const result = await buildProjectPreview(editor.value);
     frame.srcdoc = result.html;
     if (errorMount) {
       errorMount.hidden = !result.error;
@@ -304,6 +307,7 @@ function wireWorkspace() {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       toast('Project downloaded.');
     } catch (error) {
+      // Some browsers block downloads started without a direct file handle.
       toast('The download could not start. Copy the file from the editor instead.');
     }
   });

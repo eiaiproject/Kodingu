@@ -1,43 +1,84 @@
-const formatValue = (value) => {
-  if (typeof value === 'string') return value;
-  if (value === null || value === undefined) return String(value);
-  try {
-    return JSON.stringify(value);
-  } catch (error) {
-    return String(value);
-  }
-};
+const CHANNEL = 'kodingu-runner';
+const TIMEOUT = 6000;
+let sequence = 0;
 
-export function runJavaScriptLesson(raw, preview = '') {
-  const source = String(raw || '');
-  const doc = new DOMParser().parseFromString(
+function blankDocument(preview) {
+  return new DOMParser().parseFromString(
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body>${preview}</body></html>`,
     'text/html'
   );
-  const logs = [];
-  const record = (kind) => (...args) => {
-    logs.push(`${kind}: ${args.map(formatValue).join(' ')}`);
-  };
-  const consoleStub = {
-    log: record('log'),
-    info: record('info'),
-    warn: record('warn'),
-    error: record('error')
-  };
-  const windowStub = {
-    document: doc,
-    console: consoleStub,
-    alert: (message) => logs.push(`alert: ${String(message)}`)
-  };
+}
+
+function runnerDocument(source, preview, requestId, tests) {
+  const encodedPayload = JSON.stringify({
+    source,
+    tests: tests.map((test) => (test.run || test).toString())
+  }).replace(/</g, '\\u003c');
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body data-kodingu-runner-id="${requestId}">${preview}
+<script data-kodingu-runner type="application/json" id="kodingu-runner-source">${encodedPayload}</script>
+<script data-kodingu-runner src="/assets/js/runner-frame.js"></script>
+</body></html>`;
+}
+
+function resultFromPayload(payload, source, preview, tests) {
+  const doc = payload && payload.html
+    ? new DOMParser().parseFromString(payload.html, 'text/html')
+    : blankDocument(preview);
   let error = null;
-  let value;
-  if (source.trim()) {
-    try {
-      const factory = new Function('document', 'window', 'console', `"use strict";\n${source}`);
-      value = factory(doc, windowStub, consoleStub);
-    } catch (caught) {
-      error = caught instanceof Error ? caught : new Error(String(caught));
-    }
+  if (payload && payload.error) {
+    error = new Error(payload.error.message);
+    error.name = payload.error.name || 'Error';
   }
-  return { doc, raw: source, css: '', error, logs, value };
+  const results = Array.isArray(payload?.results) ? payload.results.map(Boolean) : tests.map(() => false);
+  return { doc, raw: source, css: '', error, results };
+}
+
+export function runJavaScriptLesson(raw, preview = '', tests = []) {
+  const source = String(raw || '');
+  if (!source.trim()) {
+    return Promise.resolve({
+      doc: blankDocument(preview),
+      raw: source,
+      css: '',
+      error: null,
+      results: tests.map(() => false)
+    });
+  }
+
+  const requestId = `kodingu-run-${++sequence}`;
+  const frame = document.createElement('iframe');
+  frame.setAttribute('sandbox', 'allow-scripts');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.tabIndex = -1;
+  frame.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;';
+  frame.srcdoc = runnerDocument(source, preview, requestId, tests);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (payload) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener('message', onMessage);
+      frame.remove();
+      resolve(resultFromPayload(payload, source, preview, tests));
+    };
+    const onMessage = (event) => {
+      const payload = event.data;
+      if (!payload || payload.channel !== CHANNEL || payload.id !== requestId) return;
+      finish(payload);
+    };
+    const timer = window.setTimeout(() => {
+      finish({
+        error: {
+          name: 'TimeoutError',
+          message: 'The script did not finish within 6 seconds.'
+        },
+        results: tests.map(() => false)
+      });
+    }, TIMEOUT);
+
+    window.addEventListener('message', onMessage);
+    document.body.append(frame);
+  });
 }

@@ -40,6 +40,10 @@ function codeBlock(code, lang = 'html') {
   `;
 }
 
+function listItems(items) {
+  return items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+}
+
 function renderBlock(block) {
   if (block.type === 'p') return `<p>${escapeHtml(block.text)}</p>`;
   if (block.type === 'h3') return `<h3>${escapeHtml(block.text)}</h3>`;
@@ -47,7 +51,7 @@ function renderBlock(block) {
     return `<aside class="note"><span class="note-label">Note</span><p>${escapeHtml(block.text)}</p></aside>`;
   }
   if (block.type === 'list') {
-    return `<ul>${block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+    return `<ul>${listItems(block.items)}</ul>`;
   }
   if (block.type === 'code') return codeBlock(block.code, block.lang || 'html');
   return '';
@@ -111,16 +115,14 @@ function completedPanelMarkup() {
   const next = getNextLesson(course, lesson.id);
   const allDone = lessons.every((item) => progress.completed[item.id]);
   const courseHref = `course.html?course=${encodeURIComponent(course.id)}`;
-  const nextHref = allDone
-    ? courseHref
-    : next
-      ? `lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(next.id)}`
-      : courseHref;
-  const nextLabel = allDone
-    ? 'Review the course'
-    : next
-      ? `Next lesson: ${escapeHtml(next.title)}`
-      : `Back to ${escapeHtml(course.title)}`;
+  let nextHref = courseHref;
+  let nextLabel = `Back to ${escapeHtml(course.title)}`;
+  if (allDone) {
+    nextLabel = 'Review the course';
+  } else if (next) {
+    nextHref = `lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(next.id)}`;
+    nextLabel = `Next lesson: ${escapeHtml(next.title)}`;
+  }
 
   return `
     <section class="finish-panel is-complete" id="finish-panel" aria-labelledby="finish-heading">
@@ -133,6 +135,23 @@ function completedPanelMarkup() {
       </div>
     </section>
   `;
+}
+
+function unfinishedPanelMarkup(lesson, quizDone) {
+  const quizMark = quizDone ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>';
+  return `
+      <section class="finish-panel" id="finish-panel" aria-labelledby="finish-heading">
+        <h2 class="finish-title" id="finish-heading">Finish this lesson</h2>
+        <div class="finish-status">
+          <span id="finish-quiz"${quizDone ? ' class="is-done"' : ''}>${quizMark} Quiz</span>
+          <span id="finish-checks"><span class="check-pending"></span> Checks</span>
+        </div>
+        <div class="finish-actions">
+          <button class="button button-primary" id="finish-lesson" type="button" disabled>Finish lesson · +${lesson.xp} XP</button>
+          <span class="finish-hint" id="finish-hint">Answer the quiz and pass every check to finish.</span>
+        </div>
+      </section>
+    `;
 }
 
 function renderMain() {
@@ -166,8 +185,8 @@ function renderMain() {
     .join('');
 
   const quizFeedback = quizDone
-    ? `<div class="feedback is-pass" role="status">${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span></div>`
-    : `<div class="feedback" id="quiz-feedback" role="status" hidden></div>`;
+    ? `<output class="feedback is-pass">${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span></output>`
+    : `<output class="feedback" id="quiz-feedback" hidden></output>`;
 
   const checks = lesson.challenge.tests
     .map(
@@ -181,21 +200,7 @@ function renderMain() {
     )
     .join('');
 
-  const finishMarkup = complete
-    ? completedPanelMarkup()
-    : `
-      <section class="finish-panel" id="finish-panel" aria-labelledby="finish-heading">
-        <h2 class="finish-title" id="finish-heading">Finish this lesson</h2>
-        <div class="finish-status">
-          <span id="finish-quiz"${quizDone ? ' class="is-done"' : ''}>${quizDone ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Quiz</span>
-          <span id="finish-checks"><span class="check-pending"></span> Checks</span>
-        </div>
-        <div class="finish-actions">
-          <button class="button button-primary" id="finish-lesson" type="button" disabled>Finish lesson · +${lesson.xp} XP</button>
-          <span class="finish-hint" id="finish-hint">Answer the quiz and pass every check to finish.</span>
-        </div>
-      </section>
-    `;
+  const finishMarkup = complete ? completedPanelMarkup() : unfinishedPanelMarkup(lesson, quizDone);
 
   const previousLink = previous
     ? `<a href="lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(previous.id)}"><span class="lesson-nav-label">Previous</span><span>${escapeHtml(previous.title)}</span></a>`
@@ -278,7 +283,7 @@ function renderMain() {
             <iframe id="editor-frame" title="Preview of your ${languageMeta.frame}" sandbox=""></iframe>
           </div>
         </div>
-        <p class="editor-error" id="script-error" role="status" hidden></p>
+        <output class="editor-error" id="script-error" hidden></output>
       </div>
 
       <div class="checks">
@@ -327,9 +332,9 @@ function wireLesson(lesson, quizDone) {
     scriptError.textContent = error ? `Script error: ${error.message}` : '';
   };
 
-  const runPreview = () => {
+  const runPreview = async () => {
     if (frame && editor) {
-      frame.srcdoc = buildPreviewDocument(editor.value, {
+      frame.srcdoc = await buildPreviewDocument(editor.value, {
         language,
         preview: lesson.preview
       });
@@ -382,35 +387,31 @@ function wireLesson(lesson, quizDone) {
     }
   };
 
-  const checkCode = () => {
+  const checkCode = async () => {
     if (!editor) return;
     recordActivity('check', lesson.id);
     const raw = editor.value;
     let results;
 
     if (language === 'js') {
-      renderScriptError(runJavaScriptLesson(raw, lesson.preview).error);
-      results = lesson.challenge.tests.map((test) => {
-        try {
-          const run = runJavaScriptLesson(raw, lesson.preview);
-          return Boolean(test.run({ ...run, raw, css: '' }));
-        } catch (error) {
-          return false;
-        }
-      });
+      const runs = await Promise.all(
+        lesson.challenge.tests.map((test) => runJavaScriptLesson(raw, lesson.preview, [test]))
+      );
+      const failedRun = runs.find((run) => run.error);
+      renderScriptError(failedRun?.error || null);
+      results = runs.map((run) => Boolean(run.results[0]));
     } else {
       renderScriptError(null);
-      const doc = new DOMParser().parseFromString(
-        language === 'css'
-          ? buildPreviewDocument(raw, { language, preview: lesson.preview })
-          : raw,
-        'text/html'
-      );
+      const markup = language === 'css'
+        ? await buildPreviewDocument(raw, { language, preview: lesson.preview })
+        : raw;
+      const doc = new DOMParser().parseFromString(markup, 'text/html');
       const css = language === 'css' ? raw : '';
       results = lesson.challenge.tests.map((test) => {
         try {
           return Boolean(test.run({ doc, raw, css }));
         } catch (error) {
+          // A broken check is a failed check, not a page failure.
           return false;
         }
       });
@@ -575,6 +576,7 @@ function wireLesson(lesson, quizDone) {
         button.innerHTML = original;
       }, 2000);
     } catch (error) {
+      // Clipboard access can be denied, so point the learner at manual copy.
       toast('Copy failed. Select the code and copy it.');
     }
   });

@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { ICONS } from '../assets/js/icons.js';
 
 const path = ICONS.Code.O;

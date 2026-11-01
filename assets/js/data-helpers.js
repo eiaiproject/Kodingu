@@ -13,10 +13,33 @@ function parseDeclarations(body) {
     const colon = part.indexOf(':');
     if (colon === -1) return;
     const property = part.slice(0, colon).trim().toLowerCase();
-    const value = normalize(part.slice(colon + 1)).replace(/\s*!important\s*$/i, '');
+    let value = normalize(part.slice(colon + 1));
+    if (value.toLowerCase().endsWith('!important')) {
+      value = value.slice(0, -'!important'.length).trim();
+    }
     if (property && value) declarations[property] = value;
   });
   return declarations;
+}
+
+function readBlock(text, open) {
+  let depth = 1;
+  let cursor = open + 1;
+  while (cursor < text.length && depth > 0) {
+    if (text[cursor] === '{') depth += 1;
+    else if (text[cursor] === '}') depth -= 1;
+    cursor += 1;
+  }
+  if (depth !== 0) return null;
+  return { body: text.slice(open + 1, cursor - 1), end: cursor };
+}
+
+function pushRule(selector, body, media, rules) {
+  if (!selector || selector.startsWith('@')) return;
+  const declarations = parseDeclarations(body);
+  if (Object.keys(declarations).length) {
+    rules.push({ selector, declarations, media });
+  }
 }
 
 function parseBlocks(text, media = null, rules = []) {
@@ -25,24 +48,14 @@ function parseBlocks(text, media = null, rules = []) {
     const open = text.indexOf('{', index);
     if (open === -1) break;
     const selector = normalize(text.slice(index, open));
-    let depth = 1;
-    let cursor = open + 1;
-    while (cursor < text.length && depth > 0) {
-      if (text[cursor] === '{') depth += 1;
-      else if (text[cursor] === '}') depth -= 1;
-      cursor += 1;
-    }
-    if (depth !== 0) break;
-    const body = text.slice(open + 1, cursor - 1);
+    const block = readBlock(text, open);
+    if (!block) break;
     if (selector.startsWith('@media')) {
-      parseBlocks(body, selector, rules);
-    } else if (!selector.startsWith('@')) {
-      const declarations = parseDeclarations(body);
-      if (selector && Object.keys(declarations).length) {
-        rules.push({ selector, declarations, media });
-      }
+      parseBlocks(block.body, selector, rules);
+    } else {
+      pushRule(selector, block.body, media, rules);
     }
-    index = cursor;
+    index = block.end;
   }
   return rules;
 }
@@ -90,17 +103,17 @@ export function cssOrder(css, selectors, media = null) {
 
 export function parseColor(value) {
   const text = String(value || '').trim().toLowerCase();
-  const hex = text.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(text);
   if (hex) {
     const raw = hex[1];
     const full = raw.length === 3 ? raw.split('').map((part) => part + part).join('') : raw;
     return {
-      r: parseInt(full.slice(0, 2), 16),
-      g: parseInt(full.slice(2, 4), 16),
-      b: parseInt(full.slice(4, 6), 16)
+      r: Number.parseInt(full.slice(0, 2), 16),
+      g: Number.parseInt(full.slice(2, 4), 16),
+      b: Number.parseInt(full.slice(4, 6), 16)
     };
   }
-  const rgb = text.match(/^rgba?\(([^)]+)\)$/);
+  const rgb = /^rgba?\(([^)]+)\)$/.exec(text);
   if (rgb) {
     const parts = rgb[1].split(/[ ,/]+/).filter(Boolean).map(Number);
     if (parts.length >= 3 && parts.slice(0, 3).every((part) => Number.isFinite(part))) {

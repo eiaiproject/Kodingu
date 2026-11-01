@@ -240,7 +240,7 @@ function renderMain() {
             <iframe id="challenge-frame" title="Preview of your ${meta.frame}" sandbox=""></iframe>
           </div>
         </div>
-        <p class="editor-error" id="challenge-error" role="status" hidden></p>
+        <output class="editor-error" id="challenge-error" hidden></output>
       </div>
 
       <div class="checks">
@@ -276,7 +276,6 @@ function wireChallenge() {
   const errorMount = document.querySelector('#challenge-error');
   const checkButton = document.querySelector('#check-challenge');
   const finishButton = document.querySelector('#finish-challenge');
-  const meta = languageMeta[challenge.language] || languageMeta.html;
   const state = { testsPassed: false };
 
   const renderError = (error) => {
@@ -285,9 +284,9 @@ function wireChallenge() {
     errorMount.textContent = error ? `Script error: ${error.message}` : '';
   };
 
-  const runPreview = () => {
+  const runPreview = async () => {
     if (!editor || !frame) return;
-    frame.srcdoc = buildPreviewDocument(editor.value, {
+    frame.srcdoc = await buildPreviewDocument(editor.value, {
       language: challenge.language,
       preview: challenge.preview
     });
@@ -332,34 +331,30 @@ function wireChallenge() {
     }
   };
 
-  const checkCode = () => {
+  const checkCode = async () => {
     if (!editor) return;
     const raw = editor.value;
     let results;
 
     if (challenge.language === 'js') {
-      renderError(runJavaScriptLesson(raw, challenge.preview).error);
-      results = challenge.tests.map((test) => {
-        try {
-          const run = runJavaScriptLesson(raw, challenge.preview);
-          return Boolean(test.run({ ...run, raw, css: '' }));
-        } catch (error) {
-          return false;
-        }
-      });
+      const runs = await Promise.all(
+        challenge.tests.map((test) => runJavaScriptLesson(raw, challenge.preview, [test]))
+      );
+      const failedRun = runs.find((run) => run.error);
+      renderError(failedRun?.error || null);
+      results = runs.map((run) => Boolean(run.results[0]));
     } else {
       renderError(null);
-      const doc = new DOMParser().parseFromString(
-        challenge.language === 'css'
-          ? buildPreviewDocument(raw, { language: 'css', preview: challenge.preview })
-          : raw,
-        'text/html'
-      );
+      const markup = challenge.language === 'css'
+        ? await buildPreviewDocument(raw, { language: 'css', preview: challenge.preview })
+        : raw;
+      const doc = new DOMParser().parseFromString(markup, 'text/html');
       const css = challenge.language === 'css' ? raw : '';
       results = challenge.tests.map((test) => {
         try {
           return Boolean(test.run({ doc, raw, css }));
         } catch (error) {
+          // A broken check is a failed check, not a page failure.
           return false;
         }
       });
@@ -461,6 +456,7 @@ function wireChallenge() {
         button.innerHTML = original;
       }, 2000);
     } catch (error) {
+      // Clipboard access can be denied, so point the learner at manual copy.
       toast('Copy failed. Select the code and copy it.');
     }
   });

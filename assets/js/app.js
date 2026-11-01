@@ -22,7 +22,9 @@ let iconSequence = 0;
 export function icon(name, options = {}) {
   const { size = 20, weight = 'Outline', className = '', label = '' } = options;
   const data = ICONS[name];
-  let body = data ? data[weight === 'Filled' ? 'F' : 'O'] || data.O : '';
+  const style = weight === 'Filled' ? 'F' : 'O';
+  let body = '';
+  if (data) body = data[style] || data.O;
   if (body.includes('clip0_')) {
     const clipId = `kodingu-clip-${++iconSequence}`;
     body = body.replace(/clip0_\d+_\d+/g, clipId);
@@ -42,9 +44,9 @@ export function escapeHtml(value) {
 
 export function hydrateIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach((node) => {
-    const name = node.getAttribute('data-icon');
-    const size = Number(node.getAttribute('data-size')) || 20;
-    const label = node.getAttribute('data-label') || '';
+    const name = node.dataset.icon;
+    const size = Number(node.dataset.size) || 20;
+    const label = node.dataset.label || '';
     node.innerHTML = icon(name, { size, label });
   });
 }
@@ -57,6 +59,7 @@ export function storageAvailable() {
     localStorage.removeItem(probe);
     storageOk = true;
   } catch (error) {
+    // Local storage is optional; the caller falls back to memory.
     storageOk = false;
   }
   return storageOk;
@@ -83,6 +86,32 @@ function defaultProgress() {
   };
 }
 
+const objectOrEmpty = (value) =>
+  value && typeof value === 'object' ? value : {};
+
+function normalizeProgress(parsed) {
+  const data = objectOrEmpty(parsed);
+  const completed = objectOrEmpty(data.completed);
+  return {
+    ...defaultProgress(),
+    ...data,
+    completed,
+    completedChallenges: objectOrEmpty(data.completedChallenges),
+    completedProjects: objectOrEmpty(data.completedProjects),
+    projectChecks: objectOrEmpty(data.projectChecks),
+    tokens: Number.isFinite(data.tokens)
+      ? data.tokens
+      : Object.keys(completed).length * TOKENS_PER_LESSON,
+    streakFreezes: Number.isFinite(data.streakFreezes) ? data.streakFreezes : 0,
+    chestsOpened: Number.isFinite(data.chestsOpened) ? data.chestsOpened : 0,
+    quizzes: objectOrEmpty(data.quizzes),
+    history: Array.isArray(data.history) ? data.history : [],
+    missions: objectOrEmpty(data.missions),
+    activity: Array.isArray(data.activity) ? data.activity : [],
+    solutionViews: Array.isArray(data.solutionViews) ? data.solutionViews : []
+  };
+}
+
 export function getProgress() {
   if (!storageAvailable()) {
     if (!memoryProgress) memoryProgress = defaultProgress();
@@ -91,36 +120,9 @@ export function getProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultProgress();
-    const parsed = JSON.parse(raw);
-    const completed = parsed.completed || {};
-    return {
-      ...defaultProgress(),
-      ...parsed,
-      completed,
-      completedChallenges:
-        parsed.completedChallenges && typeof parsed.completedChallenges === 'object'
-          ? parsed.completedChallenges
-          : {},
-      completedProjects:
-        parsed.completedProjects && typeof parsed.completedProjects === 'object'
-          ? parsed.completedProjects
-          : {},
-      projectChecks:
-        parsed.projectChecks && typeof parsed.projectChecks === 'object'
-          ? parsed.projectChecks
-          : {},
-      tokens: Number.isFinite(parsed.tokens)
-        ? parsed.tokens
-        : Object.keys(completed).length * TOKENS_PER_LESSON,
-      streakFreezes: Number.isFinite(parsed.streakFreezes) ? parsed.streakFreezes : 0,
-      chestsOpened: Number.isFinite(parsed.chestsOpened) ? parsed.chestsOpened : 0,
-      quizzes: parsed.quizzes || {},
-      history: Array.isArray(parsed.history) ? parsed.history : [],
-      missions: parsed.missions && typeof parsed.missions === 'object' ? parsed.missions : {},
-      activity: Array.isArray(parsed.activity) ? parsed.activity : [],
-      solutionViews: Array.isArray(parsed.solutionViews) ? parsed.solutionViews : []
-    };
+    return normalizeProgress(JSON.parse(raw));
   } catch (error) {
+    // Corrupt or unavailable storage starts a fresh local profile.
     return defaultProgress();
   }
 }
@@ -157,7 +159,7 @@ function yesterdayKey() {
 function dayDifference(fromKey, toKey) {
   const from = new Date(`${fromKey}T00:00:00`);
   const to = new Date(`${toKey}T00:00:00`);
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return NaN;
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return Number.NaN;
   return Math.round((to - from) / 86400000);
 }
 
@@ -457,7 +459,7 @@ export function toast(message) {
   }, 4200);
 }
 
-export function buildProjectPreview(raw) {
+export async function buildProjectPreview(raw) {
   const source = String(raw || '');
   const parsed = new DOMParser().parseFromString(source, 'text/html');
   const styles = Array.from(parsed.querySelectorAll('style'))
@@ -475,7 +477,7 @@ export function buildProjectPreview(raw) {
   let error = null;
 
   if (scripts.trim()) {
-    const result = runJavaScriptLesson(scripts, body);
+    const result = await runJavaScriptLesson(scripts, body);
     error = result.error;
     body = result.doc.body.innerHTML;
   }
@@ -486,7 +488,7 @@ export function buildProjectPreview(raw) {
   };
 }
 
-export function buildPreviewDocument(raw, options = {}) {
+export async function buildPreviewDocument(raw, options = {}) {
   const style = `<style>
     html { color-scheme: light; }
     body { margin: 0; padding: 1.25rem; background: #ffffff; color: #1f1d1a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; }
@@ -503,7 +505,7 @@ export function buildPreviewDocument(raw, options = {}) {
   const source = String(raw || '');
   if (options.language === 'js') {
     const preview = options.preview || '<h1>Preview</h1><p>Write a script and run it.</p>';
-    const result = runJavaScriptLesson(source, preview);
+    const result = await runJavaScriptLesson(source, preview);
     const error = result.error
       ? `<p class="preview-error">Script error: ${escapeHtml(result.error.message)}</p>`
       : '';
@@ -588,8 +590,6 @@ export function renderHeader() {
   const stats = headerStatsMarkup(progress);
   const theme = readTheme();
   const page = (window.location.pathname.split('/').pop() || 'index.html').replace(/\.html$/, '') || 'index';
-  const current = (...hrefs) =>
-    hrefs.some((href) => href.replace(/\.html$/, '') === page) ? ' aria-current="page"' : '';
 
   mount.innerHTML = `
     <a class="skip-link" href="#main">Skip to content</a>
@@ -601,10 +601,10 @@ export function renderHeader() {
         </a>
 
         <nav class="site-nav" id="site-nav" aria-label="Main">
-          <a href="catalog.html"${current('catalog.html')}>Catalog</a>
-          <a href="projects.html"${current('projects.html', 'project.html')}>Projects</a>
-          <a href="practice.html"${current('practice.html', 'challenge.html')}>Practice</a>
-          <a href="progress.html"${current('progress.html')}>Progress</a>
+          <a href="catalog.html" data-nav="catalog">Catalog</a>
+          <a href="projects.html" data-nav="projects project">Projects</a>
+          <a href="practice.html" data-nav="practice challenge">Practice</a>
+          <a href="progress.html" data-nav="progress">Progress</a>
           <a class="button button-primary nav-cta" href="lesson.html?course=html&amp;lesson=html-01">Start HTML</a>
         </nav>
 
@@ -622,6 +622,11 @@ export function renderHeader() {
       </div>
     </header>
   `;
+
+  mount.querySelectorAll('[data-nav]').forEach((link) => {
+    const targets = (link.dataset.nav || '').split(' ');
+    if (targets.includes(page)) link.setAttribute('aria-current', 'page');
+  });
 
   updateThemeButton(theme);
 

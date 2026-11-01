@@ -107,7 +107,7 @@
   border-radius: 2px;
   background: transparent;
   color: var(--ink-soft);
-  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .icon-button:hover {
@@ -135,7 +135,7 @@
   line-height: 1.2;
   text-align: center;
   text-decoration: none;
-  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .button-primary {
@@ -481,7 +481,7 @@
   align-items: center;
   padding: 1.35rem 0.25rem;
   text-decoration: none;
-  transition: background-color 150ms ease;
+  transition: background-color var(--motion-fast) ease;
 }
 
 .course-row-link:hover {
@@ -517,7 +517,7 @@
 .course-arrow {
   color: var(--accent);
   opacity: 0.65;
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
 }
 
 .course-row-link:hover .course-arrow {
@@ -918,7 +918,7 @@
   padding: 1rem 0.25rem;
   border-bottom: 1px solid var(--line);
   text-decoration: none;
-  transition: background-color 150ms ease;
+  transition: background-color var(--motion-fast) ease;
 }
 
 .lesson-row a:hover {
@@ -1035,7 +1035,7 @@
 }
 
 .sidebar-toggle .icon {
-  transition: transform 150ms ease;
+  transition: transform var(--motion-fast) ease;
 }
 
 .sidebar-toggle[aria-expanded="true"] .icon {
@@ -1278,7 +1278,7 @@
   background: var(--paper-raised);
   cursor: pointer;
   font-size: 0.93rem;
-  transition: border-color 150ms ease, background-color 150ms ease;
+  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
 }
 
 .quiz-option:hover {
@@ -1423,6 +1423,7 @@
 }
 
 .editor-error {
+  display: block;
   margin: 0;
   padding: 0.85rem 1rem;
   border-top: 1px solid var(--line-strong);
@@ -2359,7 +2360,7 @@
   padding: 1.1rem 0.25rem;
   border-bottom: 1px solid var(--line);
   text-decoration: none;
-  transition: background-color 150ms ease;
+  transition: background-color var(--motion-fast) ease;
 }
 
 .challenge-row:hover {
@@ -2486,7 +2487,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 1rem);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease;
 }
 
 .toast.is-visible {
@@ -2926,7 +2927,7 @@
   .certificate-actions,
   .certificate-locked,
   .toast {
-    display: none !important;
+    display: none;
   }
 
   #main {

@@ -35,6 +35,12 @@ function courseAction(course, stats) {
   return `<a class="button button-secondary button-small" href="${courseHref}">Open course</a>`;
 }
 
+function plannedMarkup(course) {
+  if (!course.planned) return '';
+  const items = course.planned.map((topic) => `<li>${escapeHtml(topic)}</li>`).join('');
+  return `<ul class="planned">${items}</ul>`;
+}
+
 function renderCatalog() {
   const mount = document.querySelector('#catalog-list');
   if (!mount) return;
@@ -44,9 +50,7 @@ function renderCatalog() {
       const total = lessonCount(course);
       const stats = getCourseStats(course);
       const xp = xpCount(course);
-      const planned = course.planned
-        ? `<ul class="planned">${course.planned.map((topic) => `<li>${escapeHtml(topic)}</li>`).join('')}</ul>`
-        : '';
+      const planned = plannedMarkup(course);
       const progress = total
         ? `<div class="catalog-progress">
              <span class="catalog-progress-label">${stats.completed} of ${pluralize(total, 'lesson')} complete</span>

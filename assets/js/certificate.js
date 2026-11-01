@@ -86,11 +86,11 @@ function renderCertificate() {
     <section class="certificate-wrap" aria-labelledby="certificate-heading">
       <div class="certificate-actions">
         <label for="certificate-name">Name on certificate</label>
-        <input id="certificate-name" name="certificate-name" type="text" maxlength="60" autocomplete="name" placeholder="Your name" value="${escapeHtml(name)}">
-        <button class="button button-primary" id="print-certificate" type="button"${name ? '' : ' disabled'}>
+        <input id="certificate-name" name="certificate-name" type="text" maxlength="60" autocomplete="name" placeholder="Your name" value="">
+        <button class="button button-primary" id="print-certificate" type="button" disabled>
           ${icon('Award', { size: 16 })} Print or save as PDF
         </button>
-        <p class="certificate-hint" id="certificate-hint">${name ? 'Print or save as PDF from your browser.' : 'Add your name to print.'}</p>
+        <p class="certificate-hint" id="certificate-hint">Add your name to print.</p>
       </div>
 
       <article class="certificate" id="certificate">
@@ -98,7 +98,7 @@ function renderCertificate() {
         <p class="certificate-kicker">Kodingu certificate</p>
         <h2 class="certificate-course" id="certificate-heading">${escapeHtml(course.title)}</h2>
         <p class="certificate-for">Awarded to</p>
-        <p class="certificate-name${name ? '' : ' is-placeholder'}" id="certificate-name-display">${name ? escapeHtml(name) : 'Your name'}</p>
+        <p class="certificate-name is-placeholder" id="certificate-name-display">Your name</p>
         <p class="certificate-copy">for completing all ${pluralize(lessons.length, 'lesson')} and earning ${xp} XP.</p>
         <dl class="certificate-meta">
           <div><dt>Date</dt><dd>${escapeHtml(formatFullDate(completedAt))}</dd></div>
@@ -114,6 +114,7 @@ function renderCertificate() {
   const display = document.querySelector('#certificate-name-display');
   const printButton = document.querySelector('#print-certificate');
   const hint = document.querySelector('#certificate-hint');
+  input.value = name;
 
   const updateName = () => {
     const value = input.value.trim().slice(0, 60);
@@ -125,6 +126,7 @@ function renderCertificate() {
   };
 
   input.addEventListener('input', updateName);
+  updateName();
   printButton.addEventListener('click', () => {
     window.print();
   });

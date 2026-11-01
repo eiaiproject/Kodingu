@@ -203,7 +203,7 @@ document.querySelector('#path').textContent =
             },
             {
               label: 'The source uses a template literal.',
-              run: ({ raw }) => raw.includes('\`')
+              run: ({ raw }) => raw.includes('`')
             },
             {
               label: 'The path lowercases the course name.',

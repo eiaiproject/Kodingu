@@ -56,26 +56,31 @@ const names = [
 ];
 
 const base = `https://cdn.jsdelivr.net/npm/reicon@${VERSION}/icons`;
-const icons = {};
-
-for (const name of names) {
-  const response = await fetch(`${base}/${name}.js`);
-  if (!response.ok) {
-    throw new Error(`Missing Reicon icon: ${name} (${response.status})`);
-  }
-  const source = await response.text();
-  const match = source.match(/createIcon\('([^']+)',\s*\{([\s\S]*?)\}\);/);
-  if (!match) {
-    throw new Error(`Could not parse Reicon icon: ${name}`);
-  }
-  const body = match[2];
-  const outline = body.match(/O:\s*`([\s\S]*?)`/);
-  const filled = body.match(/F:\s*`([\s\S]*?)`/);
-  icons[name] = {
-    O: outline ? outline[1] : '',
-    F: filled ? filled[1] : ''
-  };
-}
+const icons = Object.fromEntries(
+  await Promise.all(
+    names.map(async (name) => {
+      const response = await fetch(`${base}/${name}.js`);
+      if (!response.ok) {
+        throw new Error(`Missing Reicon icon: ${name} (${response.status})`);
+      }
+      const source = await response.text();
+      const match = /createIcon\('([^']+)',\s*\{([\s\S]*?)\}\);/.exec(source);
+      if (!match) {
+        throw new Error(`Could not parse Reicon icon: ${name}`);
+      }
+      const body = match[2];
+      const outline = /O:\s*`([\s\S]*?)`/.exec(body);
+      const filled = /F:\s*`([\s\S]*?)`/.exec(body);
+      return [
+        name,
+        {
+          O: outline ? outline[1] : '',
+          F: filled ? filled[1] : ''
+        }
+      ];
+    })
+  )
+);
 
 const output = [
   `// Generated from reicon@${VERSION} (MIT). https://reicon.dev`,

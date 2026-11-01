@@ -40,8 +40,8 @@ function initDemo() {
   const run = document.querySelector('#demo-run');
   if (!code || !frame || !run) return;
 
-  const update = () => {
-    frame.srcdoc = buildPreviewDocument(code.value);
+  const update = async () => {
+    frame.srcdoc = await buildPreviewDocument(code.value);
   };
 
   run.addEventListener('click', update);

@@ -55,6 +55,88 @@ function lessonRows(course, lessons, completed) {
     .join('');
 }
 
+function plannedMarkup(course) {
+  if (!course.planned) return '';
+  const items = course.planned.map((topic) => `<li>${escapeHtml(topic)}</li>`).join('');
+  return `<ul class="planned">${items}</ul>`;
+}
+
+function courseSideMarkup(course, lessons, stats, xp) {
+  if (!lessons.length) {
+    return `
+      <span class="status status-progress">${statusLabel(course.status)}</span>
+      <p class="muted">Lessons are not ready yet.</p>
+      <a class="button button-primary" href="lesson.html?course=html&amp;lesson=html-01">Open the HTML course</a>
+    `;
+  }
+
+  const courseHref = `course.html?course=${encodeURIComponent(course.id)}`;
+  const targetLesson = stats.percent === 100 ? lessons[0] : stats.nextLesson;
+  const nextHref = targetLesson
+    ? `lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(targetLesson.id)}`
+    : courseHref;
+  const nextIndex = targetLesson ? lessons.findIndex((lesson) => lesson.id === targetLesson.id) : 0;
+  const statusClass = course.status === 'open' ? 'status-open' : 'status-progress';
+  const certificateLink = stats.percent === 100
+    ? `<a class="button button-secondary" href="certificate.html?course=${encodeURIComponent(course.id)}">Open certificate</a>`
+    : '';
+
+  let actionLabel = 'Start lesson 01';
+  if (stats.percent === 100) actionLabel = 'Review lesson 01';
+  else if (stats.started) actionLabel = `Continue lesson ${String(nextIndex + 1).padStart(2, '0')}`;
+
+  return `
+      <span class="status ${statusClass}">${statusLabel(course.status)}</span>
+      <div class="course-side-progress">
+        <div class="course-side-label"><span>Your progress</span><span>${stats.percent}%</span></div>
+        ${progressBar(stats.percent, `${course.title} progress`)}
+        <div class="course-side-label"><span>${stats.completed} of ${pluralize(lessons.length, 'lesson')}</span><span>${xp} XP total</span></div>
+      </div>
+      <a class="button button-primary" href="${nextHref}">${actionLabel}</a>
+      ${certificateLink}
+      <p class="muted">Progress is saved in this browser.</p>
+    `;
+}
+
+function plannedCourseMarkup(course) {
+  return `
+      <section class="planned-block" aria-labelledby="planned-heading">
+        <p class="section-label">In progress</p>
+        <h2 id="planned-heading">What is planned</h2>
+        <p>${escapeHtml(course.note || 'This course is being written.')}</p>
+        ${plannedMarkup(course)}
+        <div class="hero-actions">
+          <a class="button button-secondary" href="catalog.html">Back to the catalog</a>
+        </div>
+      </section>
+    `;
+}
+
+function courseContentMarkup(course, progress) {
+  const note = course.status !== 'open' && course.note
+    ? `<p class="course-note">${escapeHtml(course.note)}</p>`
+    : '';
+  const modules = course.modules
+    .map((module, moduleIndex) => {
+      const rows = lessonRows(course, module.lessons, progress.completed);
+      return `
+        <section class="module" aria-labelledby="module-${moduleIndex}">
+          <div class="module-head">
+            <div>
+              <p class="module-kicker">Module ${String(moduleIndex + 1).padStart(2, '0')}</p>
+              <h2 id="module-${moduleIndex}">${escapeHtml(module.title)}</h2>
+              <p class="module-desc">${escapeHtml(module.description)}</p>
+            </div>
+            <p class="muted mono">${pluralize(module.lessons.length, 'lesson')}</p>
+          </div>
+          <ul class="lesson-rows">${rows}</ul>
+        </section>
+      `;
+    })
+    .join('');
+  return `${note}${modules}`;
+}
+
 function renderCourse(course) {
   setPageTitle(course.title);
   setMetaDescription(course.description);
@@ -67,34 +149,7 @@ function renderCourse(course) {
   const content = document.querySelector('#course-content');
   if (!hero || !content) return;
 
-  const courseHref = `course.html?course=${encodeURIComponent(course.id)}`;
-  const targetLesson = stats.percent === 100 ? lessons[0] : stats.nextLesson;
-  const nextHref = targetLesson
-    ? `lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(targetLesson.id)}`
-    : courseHref;
-  const nextIndex = targetLesson ? lessons.findIndex((lesson) => lesson.id === targetLesson.id) : 0;
-
-  let actionLabel = 'Start lesson 01';
-  if (stats.percent === 100) actionLabel = 'Review lesson 01';
-  else if (stats.started) actionLabel = `Continue lesson ${String(nextIndex + 1).padStart(2, '0')}`;
-
-  const side = lessons.length
-    ? `
-      <span class="status ${course.status === 'open' ? 'status-open' : 'status-progress'}">${statusLabel(course.status)}</span>
-      <div class="course-side-progress">
-        <div class="course-side-label"><span>Your progress</span><span>${stats.percent}%</span></div>
-        ${progressBar(stats.percent, `${course.title} progress`)}
-        <div class="course-side-label"><span>${stats.completed} of ${pluralize(lessons.length, 'lesson')}</span><span>${xp} XP total</span></div>
-      </div>
-      <a class="button button-primary" href="${nextHref}">${actionLabel}</a>
-      ${stats.percent === 100 ? `<a class="button button-secondary" href="certificate.html?course=${encodeURIComponent(course.id)}">Open certificate</a>` : ''}
-      <p class="muted">Progress is saved in this browser.</p>
-    `
-    : `
-      <span class="status status-progress">${statusLabel(course.status)}</span>
-      <p class="muted">Lessons are not ready yet.</p>
-      <a class="button button-primary" href="lesson.html?course=html&amp;lesson=html-01">Open the HTML course</a>
-    `;
+  const side = courseSideMarkup(course, lessons, stats, xp);
 
   hero.innerHTML = `
     <div>
@@ -119,40 +174,11 @@ function renderCourse(course) {
   `;
 
   if (!course.modules.length) {
-    content.innerHTML = `
-      <section class="planned-block" aria-labelledby="planned-heading">
-        <p class="section-label">In progress</p>
-        <h2 id="planned-heading">What is planned</h2>
-        <p>${escapeHtml(course.note || 'This course is being written.')}</p>
-        ${course.planned ? `<ul class="planned">${course.planned.map((topic) => `<li>${escapeHtml(topic)}</li>`).join('')}</ul>` : ''}
-        <div class="hero-actions">
-          <a class="button button-secondary" href="catalog.html">Back to the catalog</a>
-        </div>
-      </section>
-    `;
+    content.innerHTML = plannedCourseMarkup(course);
     return;
   }
 
-  content.innerHTML = `
-    ${course.status !== 'open' && course.note ? `<p class="course-note">${escapeHtml(course.note)}</p>` : ''}
-    ${course.modules
-      .map((module, moduleIndex) => `
-        <section class="module" aria-labelledby="module-${moduleIndex}">
-          <div class="module-head">
-            <div>
-              <p class="module-kicker">Module ${String(moduleIndex + 1).padStart(2, '0')}</p>
-              <h2 id="module-${moduleIndex}">${escapeHtml(module.title)}</h2>
-              <p class="module-desc">${escapeHtml(module.description)}</p>
-            </div>
-            <p class="muted mono">${pluralize(module.lessons.length, 'lesson')}</p>
-          </div>
-          <ul class="lesson-rows">
-            ${lessonRows(course, module.lessons, progress.completed)}
-          </ul>
-        </section>
-      `)
-      .join('')}
-  `;
+  content.innerHTML = courseContentMarkup(course, progress);
 }
 
 const course = getCourse(new URLSearchParams(window.location.search).get('course'));

@@ -21,6 +21,18 @@ function projectState(project, progress) {
   };
 }
 
+function projectStatusMarkup(state) {
+  if (state.complete) return '<span class="status status-complete">Complete</span>';
+  if (state.started) return '<span class="status status-progress">In progress</span>';
+  return '<span class="status">Open</span>';
+}
+
+function projectActionLabel(state) {
+  if (state.complete) return 'Review project';
+  if (state.started) return 'Continue project';
+  return 'Open project';
+}
+
 function renderProjects() {
   const mount = document.querySelector('#project-list');
   if (!mount) return;
@@ -29,16 +41,8 @@ function renderProjects() {
   mount.innerHTML = projects
     .map((project, index) => {
       const state = projectState(project, progress);
-      const status = state.complete
-        ? '<span class="status status-complete">Complete</span>'
-        : state.started
-          ? '<span class="status status-progress">In progress</span>'
-          : '<span class="status">Open</span>';
-      const action = state.complete
-        ? 'Review project'
-        : state.started
-          ? 'Continue project'
-          : 'Open project';
+      const status = projectStatusMarkup(state);
+      const action = projectActionLabel(state);
       const checked = Math.min(state.checks, project.requirements.length);
 
       return `

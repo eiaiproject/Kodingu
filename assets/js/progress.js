@@ -70,11 +70,12 @@ function renderRewards() {
   const tokens = progress.tokens || 0;
   const freezes = progress.streakFreezes || 0;
   const canBuy = tokens >= CHEST_COST && freezes < FREEZE_LIMIT;
-  const chestNote = freezes >= FREEZE_LIMIT
-    ? 'Freeze slots are full. Spend tokens after you use one.'
-    : tokens < CHEST_COST
-      ? `${CHEST_COST - tokens} more tokens needed.`
-      : 'One freeze, no chance involved.';
+  let chestNote = 'One freeze, no chance involved.';
+  if (freezes >= FREEZE_LIMIT) {
+    chestNote = 'Freeze slots are full. Spend tokens after you use one.';
+  } else if (tokens < CHEST_COST) {
+    chestNote = `${CHEST_COST - tokens} more tokens needed.`;
+  }
 
   mount.innerHTML = `
     <div class="section-heading">
@@ -147,10 +148,14 @@ function renderMissions() {
           const current = Math.min(mission.target, getMissionProgress(progress, mission));
           const complete = current >= mission.target;
           const isClaimed = claimed.includes(mission.id);
-          const state = isClaimed ? 'is-claimed' : complete ? 'is-complete' : '';
-          const control = isClaimed
-            ? '<span class="mission-claimed">Claimed</span>'
-            : `<button class="button button-secondary button-small" type="button" data-mission="${mission.id}"${complete ? '' : ' disabled'}>${complete ? `Claim +${mission.reward}` : 'In progress'}</button>`;
+          let state = '';
+          if (isClaimed) state = 'is-claimed';
+          else if (complete) state = 'is-complete';
+          let control = '<span class="mission-claimed">Claimed</span>';
+          if (!isClaimed) {
+            const label = complete ? `Claim +${mission.reward}` : 'In progress';
+            control = `<button class="button button-secondary button-small" type="button" data-mission="${mission.id}"${complete ? '' : ' disabled'}>${label}</button>`;
+          }
           return `
             <li class="mission-item ${state}">
               <span class="mission-icon">${icon('Target', { size: 18 })}</span>
@@ -196,7 +201,6 @@ function renderCourses() {
 function renderCertificates() {
   const mount = document.querySelector('#certificates');
   if (!mount) return;
-  const progress = getProgress();
   const eligible = courses.filter((course) => getAllLessons(course).length);
 
   mount.innerHTML = `
@@ -272,16 +276,15 @@ function renderHistory() {
           const course = entry.type === 'lesson'
             ? courses.find((item) => getAllLessons(item).some((lesson) => lesson.id === entry.id))
             : null;
-          const label = entry.type === 'challenge'
-            ? 'Extra practice'
-            : entry.type === 'project'
-              ? 'Project'
-              : course?.title || 'Lesson';
-          const href = entry.type === 'challenge'
-            ? `challenge.html?challenge=${encodeURIComponent(entry.id)}`
-            : entry.type === 'project'
-              ? `project.html?project=${encodeURIComponent(entry.id)}`
-              : `lesson.html?course=${encodeURIComponent(course?.id || 'html')}&amp;lesson=${encodeURIComponent(entry.id)}`;
+          let label = course?.title || 'Lesson';
+          let href = `lesson.html?course=${encodeURIComponent(course?.id || 'html')}&amp;lesson=${encodeURIComponent(entry.id)}`;
+          if (entry.type === 'challenge') {
+            label = 'Extra practice';
+            href = `challenge.html?challenge=${encodeURIComponent(entry.id)}`;
+          } else if (entry.type === 'project') {
+            label = 'Project';
+            href = `project.html?project=${encodeURIComponent(entry.id)}`;
+          }
           return `
             <li class="history-card">
               <div class="history-card-top">
