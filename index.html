@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kodingu · Learn the web by writing it</title>
+  <meta name="description" content="Kodingu is a quiet place to learn HTML, CSS, and JavaScript with short lessons, real code, and checks in the browser.">
+  <meta name="theme-color" content="#F3EFE6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)">
+  <meta property="og:title" content="Kodingu · Learn the web by writing it">
+  <meta property="og:description" content="Short lessons, real code, and checks in the browser. All three courses are open now.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <script src="assets/js/theme-init.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&family=Shippori+Mincho:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script type="module" src="assets/js/home.js"></script>
+</head>
+<body>
+  <noscript><p class="noscript">Kodingu needs JavaScript for the lessons, preview, and progress. Please turn it on.</p></noscript>
+  <div id="site-header"></div>
+
+  <main id="main">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">A small school for the web</p>
+          <h1>Learn the web by writing it.</h1>
+          <p class="lede">Kodingu is a quiet place to learn HTML, CSS, and JavaScript. Read a short lesson, write real code, and check your work in the browser.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="lesson.html?course=html&amp;lesson=html-01">
+              Start the HTML course
+              <span data-icon="ArrowRight" data-size="18"></span>
+            </a>
+            <a class="button button-secondary" href="catalog.html">See the catalog</a>
+          </div>
+          <p class="hero-note">
+            <span data-icon="BookOpen" data-size="17"></span>
+            20 HTML lessons, 12 CSS lessons, and 8 JavaScript lessons are open now.
+          </p>
+        </div>
+
+        <div class="hero-demo">
+          <div class="demo-panel">
+            <div class="demo-head">
+              <div>
+                <p class="demo-kicker">Lesson 01 · A page is a tree</p>
+                <p class="demo-title">Your first document</p>
+              </div>
+              <button class="button button-small button-secondary" id="demo-run" type="button">
+                Run
+                <span data-icon="Play" data-size="15"></span>
+              </button>
+            </div>
+            <div class="demo-body">
+              <label class="sr-only" for="demo-code">Demo HTML</label>
+              <textarea class="demo-code" id="demo-code" spellcheck="false" autocomplete="off">&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+  &lt;head&gt;
+    &lt;title&gt;My first page&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;Hello, Kodingu&lt;/h1&gt;
+    &lt;p&gt;This page is made of elements.&lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</textarea>
+              <div class="demo-preview">
+                <p class="preview-label">Preview</p>
+                <iframe id="demo-frame" title="Preview of the demo HTML" sandbox=""></iframe>
+              </div>
+            </div>
+            <p class="demo-foot">
+              <span data-icon="CheckCircle" data-size="16"></span>
+              This is a real editor. Change the text and run it.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="method" id="method">
+      <div class="shell method-grid">
+        <div class="method-intro">
+          <p class="section-label">The method</p>
+          <h2>Small lessons, checked in the browser.</h2>
+          <p>No videos, no account, no AI tutor. You read a page, write a few lines, and the page checks your work.</p>
+        </div>
+        <ol class="method-list">
+          <li>
+            <span class="method-num">01</span>
+            <div>
+              <h3>Read the idea</h3>
+              <p>Each lesson teaches one part of the web and shows a real example.</p>
+            </div>
+          </li>
+          <li>
+            <span class="method-num">02</span>
+            <div>
+              <h3>Write the code</h3>
+              <p>You edit a working page, stylesheet, or script in the browser. Nothing is uploaded.</p>
+            </div>
+          </li>
+          <li>
+            <span class="method-num">03</span>
+            <div>
+              <h3>Run the checks</h3>
+              <p>Each challenge lists what passed and what needs another look.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="catalog-heading">
+      <div class="shell">
+        <div class="section-head">
+          <div>
+            <p class="section-label">Catalog</p>
+            <h2 id="catalog-heading">Three languages. One at a time.</h2>
+          </div>
+          <p class="section-head-note">All three courses are open now. Start with HTML, then CSS, then JavaScript.</p>
+        </div>
+        <ul class="course-rows" id="home-courses"></ul>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="beyond-heading">
+      <div class="shell">
+        <div class="planned-block">
+          <p class="section-label">Beyond the lessons</p>
+          <h2 id="beyond-heading">When a lesson is not enough.</h2>
+          <p>Four guided projects ask you to build a whole page. Six extra challenges add one more problem in HTML, CSS, or JavaScript. Both are optional and both stay in this browser.</p>
+          <div class="hero-actions">
+            <a class="button button-secondary" href="projects.html">Open the projects</a>
+            <a class="button button-secondary" href="practice.html">Try an extra challenge</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="practice-heading">
+      <div class="shell split-grid">
+        <div class="split-intro">
+          <p class="section-label">What is here</p>
+          <h2 id="practice-heading">Built for practice, not for watching.</h2>
+          <p>Every lesson ends with code you wrote. Progress is stored in this browser, so there is no account to create and nothing to sync.</p>
+        </div>
+        <dl class="fact-list">
+          <div>
+            <dt>Checks that explain</dt>
+            <dd>Each challenge runs against your code and lists every requirement, passed or not.</dd>
+          </div>
+          <div>
+            <dt>A real preview</dt>
+            <dd>Your code renders beside the editor. Run it again after every change.</dd>
+          </div>
+          <div>
+            <dt>Progress that stays yours</dt>
+            <dd>XP, streak, and finished lessons live in localStorage on this device.</dd>
+          </div>
+          <div>
+            <dt>Light and dark</dt>
+            <dd>The theme follows your system at first. The switch in the header remembers your choice.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="shell closing-inner">
+        <div class="closing-seal" aria-hidden="true">
+          <span data-icon="Code" data-size="26"></span>
+        </div>
+        <h2>Start with one page.</h2>
+        <p>The first HTML lesson takes about eight minutes.</p>
+        <a class="button button-primary" href="lesson.html?course=html&amp;lesson=html-01">Open lesson 01</a>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

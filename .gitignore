@@ -1,0 +1,10 @@
+.DS_Store
+.wrangler/
+.test-chrome/
+.test-downloads/
+coverage/
+node_modules/
+
+.env
+.env.*
+!.env.example
