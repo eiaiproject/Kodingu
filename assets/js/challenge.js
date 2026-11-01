@@ -237,7 +237,7 @@ function renderMain() {
           <textarea class="editor-code" id="challenge-editor" spellcheck="false" autocomplete="off">${escapeHtml(draft)}</textarea>
           <div class="editor-preview">
             <p class="preview-label">Preview</p>
-            <iframe id="challenge-frame" title="Preview of your ${meta.frame}" sandbox=""></iframe>
+            <iframe id="challenge-frame" title="Preview of your ${meta.frame}" sandbox="" tabindex="-1"></iframe>
           </div>
         </div>
         <output class="editor-error" id="challenge-error" hidden></output>

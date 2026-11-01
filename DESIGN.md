@@ -93,7 +93,7 @@ Examples:
 - **Empty and error states:** progress can be empty and a URL can be wrong, so both are designed instead of leaving a blank panel.
 - **HTML before CSS:** a complete HTML course is more useful than three empty catalogs, so HTML opened first.
 - **CSS foundations before layout:** selectors, the cascade, color, type, and the box model are the base for flexbox and responsive work, so they come first.
-- **JavaScript runs against a detached document:** the learner's code can change a page and be checked without touching the site UI, and preview iframes stay sandboxed.
+- **JavaScript runs in a sandboxed frame:** the learner's code can change a page and be checked without touching the site UI, and the main page never evaluates learner code.
 - **A local league, not a leaderboard:** with no accounts, a leaderboard would have to invent other learners, so the league measures the reader's own week.
 - **Deterministic freeze chest:** the chest always gives one freeze, so there are no odds, near-misses, or pressure to spend.
 - **Certificates are local records:** the page prints a real record of finished work and says plainly that Kodingu does not verify it.

@@ -231,7 +231,7 @@ function renderMain() {
           <textarea class="editor-code" id="project-editor" spellcheck="false" autocomplete="off">${escapeHtml(draft)}</textarea>
           <div class="editor-preview">
             <p class="preview-label">Preview</p>
-            <iframe id="project-frame" title="Preview of your project" sandbox=""></iframe>
+            <iframe id="project-frame" title="Preview of your project" sandbox="" tabindex="-1"></iframe>
           </div>
         </div>
         <output class="editor-error" id="project-error" hidden></output>

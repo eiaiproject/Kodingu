@@ -643,7 +643,7 @@ export function renderHeader() {
           <a class="button button-primary header-cta" href="lesson.html?course=html&amp;lesson=html-01">Start HTML</a>
           <button class="icon-button nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
             ${icon('Menu', { size: 20 })}
-            <span class="sr-only">Menu</span>
+            <span class="nav-toggle-label">Menu</span>
           </button>
         </div>
       </div>

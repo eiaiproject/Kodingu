@@ -717,6 +717,8 @@
   font-family: var(--font-display);
   font-size: 1.8rem;
   line-height: 1.2;
+  padding-block: 0.45rem;
+  margin-block: -0.45rem;
   text-decoration: none;
 }
 
@@ -2644,13 +2646,21 @@
     display: none;
   }
 
-  .nav-toggle {
-    display: inline-flex;
-  }
-
   .icon-button {
     width: 44px;
     height: 44px;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+    width: auto;
+    min-width: 44px;
+    gap: 0.35rem;
+    padding-inline: 0.65rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
 
   .button-small,
@@ -2757,8 +2767,6 @@
 
   .catalog-title {
     font-size: 1.55rem;
-    padding-block: 0.45rem;
-    margin-block: -0.45rem;
   }
 
   .fact-list > div {
