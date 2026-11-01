@@ -61,6 +61,7 @@ export function storageAvailable() {
   } catch (error) {
     // Local storage is optional; the caller falls back to memory.
     storageOk = false;
+    console.warn('Kodingu: local storage is unavailable.', error);
   }
   return storageOk;
 }
@@ -123,6 +124,7 @@ export function getProgress() {
     return normalizeProgress(JSON.parse(raw));
   } catch (error) {
     // Corrupt or unavailable storage starts a fresh local profile.
+    console.warn('Kodingu: saved progress could not be read.', error);
     return defaultProgress();
   }
 }
@@ -563,23 +565,48 @@ export function setTheme(theme) {
 }
 
 function headerStatsMarkup(progress) {
-  const xp = progress.xp || 0;
-  const streak = currentStreak(progress);
-  const tokens = progress.tokens || 0;
+  const xp = Number(progress.xp) || 0;
+  const streak = Number(currentStreak(progress)) || 0;
+  const tokens = Number(progress.tokens) || 0;
   if (!xp && !streak && !tokens) return '';
   return `
-    <span class="header-stat" aria-label="${xp} XP">${icon('Gauge', { size: 16 })}<span>${xp} XP</span></span>
-    <span class="header-stat" aria-label="${streak} day streak">${icon('Fire', { size: 16 })}<span>${streak}</span></span>
-    ${tokens ? `<span class="header-stat" aria-label="${tokens} tokens">${icon('Coins', { size: 16 })}<span>${tokens}</span></span>` : ''}
+    <span class="header-stat" data-stat="xp">${icon('Gauge', { size: 16 })}<span></span></span>
+    <span class="header-stat" data-stat="streak">${icon('Fire', { size: 16 })}<span></span></span>
+    ${tokens ? `<span class="header-stat" data-stat="tokens">${icon('Coins', { size: 16 })}<span></span></span>` : ''}
   `;
+}
+
+function updateHeaderStats(progress) {
+  const strip = document.querySelector('#header-stats');
+  if (!strip) return;
+  const xp = Number(progress.xp) || 0;
+  const streak = Number(currentStreak(progress)) || 0;
+  const tokens = Number(progress.tokens) || 0;
+  const xpNode = strip.querySelector('[data-stat="xp"]');
+  const streakNode = strip.querySelector('[data-stat="streak"]');
+  const tokensNode = strip.querySelector('[data-stat="tokens"]');
+  if (xpNode) {
+    xpNode.setAttribute('aria-label', `${xp} XP`);
+    xpNode.querySelector('span').textContent = `${xp} XP`;
+  }
+  if (streakNode) {
+    streakNode.setAttribute('aria-label', `${streak} day streak`);
+    streakNode.querySelector('span').textContent = String(streak);
+  }
+  if (tokensNode) {
+    tokensNode.setAttribute('aria-label', `${tokens} tokens`);
+    tokensNode.querySelector('span').textContent = String(tokens);
+  }
 }
 
 function refreshHeaderStats() {
   const strip = document.querySelector('#header-stats');
   if (!strip) return;
-  const markup = headerStatsMarkup(getProgress());
+  const progress = getProgress();
+  const markup = headerStatsMarkup(progress);
   strip.innerHTML = markup;
   strip.hidden = !markup;
+  updateHeaderStats(progress);
 }
 
 export function renderHeader() {
@@ -627,6 +654,7 @@ export function renderHeader() {
     const targets = (link.dataset.nav || '').split(' ');
     if (targets.includes(page)) link.setAttribute('aria-current', 'page');
   });
+  updateHeaderStats(progress);
 
   updateThemeButton(theme);
 

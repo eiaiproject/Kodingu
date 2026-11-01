@@ -362,12 +362,12 @@ function wireChallenge() {
 
     state.testsPassed = results.every(Boolean);
     renderChecks(results);
-    runPreview();
+    void runPreview();
     updateFinishState();
     toast(state.testsPassed ? 'All checks passed.' : 'Some checks need work.');
   };
 
-  runPreview();
+  void runPreview();
   if (finishButton) updateFinishState();
   document.querySelector('#run-challenge')?.addEventListener('click', runPreview);
   checkButton?.addEventListener('click', checkCode);
@@ -390,7 +390,7 @@ function wireChallenge() {
     });
     const summary = document.querySelector('#checks-summary');
     if (summary) summary.textContent = 'Not run';
-    runPreview();
+    void runPreview();
     renderError(null);
     updateFinishState();
     toast('Editor reset to the starter.');
@@ -407,8 +407,8 @@ function wireChallenge() {
   editor?.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault();
-      if (event.shiftKey) checkCode();
-      else runPreview();
+      if (event.shiftKey) void checkCode();
+      else void runPreview();
     }
   });
 
@@ -457,6 +457,7 @@ function wireChallenge() {
       }, 2000);
     } catch (error) {
       // Clipboard access can be denied, so point the learner at manual copy.
+      console.warn('Kodingu: clipboard copy failed.', error);
       toast('Copy failed. Select the code and copy it.');
     }
   });

@@ -2,6 +2,7 @@
   const payloadNode = document.getElementById('kodingu-runner-source');
   const requestId = document.body.dataset.kodinguRunnerId;
   const state = { error: null };
+  let targetOrigin = '';
   let finished = false;
   let testResults = [];
 
@@ -9,6 +10,7 @@
     if (finished) return;
     finished = true;
     document.querySelectorAll('[data-kodingu-runner]').forEach((node) => node.remove());
+    if (!targetOrigin) return;
     parent.postMessage(
       {
         channel: 'kodingu-runner',
@@ -17,7 +19,7 @@
         error: state.error,
         results: testResults
       },
-      '*'
+      targetOrigin
     );
   };
 
@@ -25,8 +27,8 @@
     if (state.error) return;
     const error = event.error;
     state.error = {
-      name: error && error.name ? error.name : 'Error',
-      message: error && error.message ? error.message : String(event.message || 'Script error')
+      name: error?.name || 'Error',
+      message: error?.message || String(event.message || 'Script error')
     };
   });
 
@@ -41,6 +43,7 @@
 
   const source = String(payload.source || '');
   const testSources = Array.isArray(payload.tests) ? payload.tests : [];
+  targetOrigin = String(payload.targetOrigin || '');
 
   const execute = (code, onDone) => {
     const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
@@ -66,9 +69,9 @@
     }
     const serializedTests = testSources.map((test) => `(${test})`).join(',');
     const serializedSource = JSON.stringify(source);
-    const helpers = `
+    const helpers = String.raw`
       (() => {
-        const normalize = (value) => (value || '').replace(/\\s+/g, ' ').trim();
+        const normalize = (value) => (value || '').replace(/\s+/g, ' ').trim();
         const textOf = (doc, selector) => normalize(doc.querySelector(selector)?.textContent);
         const textsOf = (doc, selector) => Array.from(doc.querySelectorAll(selector)).map((node) => normalize(node.textContent));
         const tests = [${serializedTests}];

@@ -12,8 +12,9 @@ function blankDocument(preview) {
 function runnerDocument(source, preview, requestId, tests) {
   const encodedPayload = JSON.stringify({
     source,
+    targetOrigin: window.location.origin,
     tests: tests.map((test) => (test.run || test).toString())
-  }).replace(/</g, '\\u003c');
+  }).replaceAll('<', String.raw`\u003c`);
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body data-kodingu-runner-id="${requestId}">${preview}
 <script data-kodingu-runner type="application/json" id="kodingu-runner-source">${encodedPayload}</script>
 <script data-kodingu-runner src="/assets/js/runner-frame.js"></script>
@@ -21,15 +22,17 @@ function runnerDocument(source, preview, requestId, tests) {
 }
 
 function resultFromPayload(payload, source, preview, tests) {
-  const doc = payload && payload.html
+  const doc = payload?.html
     ? new DOMParser().parseFromString(payload.html, 'text/html')
     : blankDocument(preview);
   let error = null;
-  if (payload && payload.error) {
+  if (payload?.error) {
     error = new Error(payload.error.message);
     error.name = payload.error.name || 'Error';
   }
-  const results = Array.isArray(payload?.results) ? payload.results.map(Boolean) : tests.map(() => false);
+  const results = Array.isArray(payload?.results)
+    ? payload.results.map(Boolean)
+    : tests.map(() => false);
   return { doc, raw: source, css: '', error, results };
 }
 
@@ -64,8 +67,9 @@ export function runJavaScriptLesson(raw, preview = '', tests = []) {
       resolve(resultFromPayload(payload, source, preview, tests));
     };
     const onMessage = (event) => {
+      if (event.origin !== 'null' || event.source !== frame.contentWindow) return;
       const payload = event.data;
-      if (!payload || payload.channel !== CHANNEL || payload.id !== requestId) return;
+      if (payload?.channel !== CHANNEL || payload.id !== requestId) return;
       finish(payload);
     };
     const timer = window.setTimeout(() => {

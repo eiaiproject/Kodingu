@@ -289,7 +289,7 @@ function wireWorkspace() {
     }
   };
 
-  runPreview();
+  void runPreview();
 
   document.querySelector('#run-project')?.addEventListener('click', runPreview);
 
@@ -308,6 +308,7 @@ function wireWorkspace() {
       toast('Project downloaded.');
     } catch (error) {
       // Some browsers block downloads started without a direct file handle.
+      console.warn('Kodingu: project download failed.', error);
       toast('The download could not start. Copy the file from the editor instead.');
     }
   });
@@ -327,7 +328,7 @@ function wireWorkspace() {
     if (finishChecks) finishChecks.textContent = `0 of ${project.requirements.length} checked`;
     if (finishButton) finishButton.disabled = true;
     if (finishHint) finishHint.textContent = 'Check every requirement before finishing.';
-    runPreview();
+    void runPreview();
     toast('Workspace reset to the starter. The checklist is clear.');
     editor.focus();
   });
@@ -341,7 +342,7 @@ function wireWorkspace() {
   editor?.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault();
-      runPreview();
+      void runPreview();
     }
   });
 

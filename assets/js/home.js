@@ -48,11 +48,11 @@ function initDemo() {
   code.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault();
-      update();
+      void update();
     }
   });
 
-  update();
+  void update();
 }
 
 initChrome();

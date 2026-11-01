@@ -419,12 +419,12 @@ function wireLesson(lesson, quizDone) {
 
     state.testsPassed = results.every(Boolean);
     renderChecks(results);
-    runPreview();
+    void runPreview();
     updateFinishState();
     toast(state.testsPassed ? 'All checks passed.' : 'Some checks need work.');
   };
 
-  runPreview();
+  void runPreview();
   if (finishButton) updateFinishState();
 
   runButton?.addEventListener('click', runPreview);
@@ -448,7 +448,7 @@ function wireLesson(lesson, quizDone) {
     });
     const summary = document.querySelector('#checks-summary');
     if (summary) summary.textContent = 'Not run';
-    runPreview();
+    void runPreview();
     renderScriptError(null);
     updateFinishState();
     toast('Editor reset to the starter.');
@@ -471,8 +471,8 @@ function wireLesson(lesson, quizDone) {
   editor?.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault();
-      if (event.shiftKey) checkCode();
-      else runPreview();
+      if (event.shiftKey) void checkCode();
+      else void runPreview();
     }
   });
 
@@ -577,6 +577,7 @@ function wireLesson(lesson, quizDone) {
       }, 2000);
     } catch (error) {
       // Clipboard access can be denied, so point the learner at manual copy.
+      console.warn('Kodingu: clipboard copy failed.', error);
       toast('Copy failed. Select the code and copy it.');
     }
   });
