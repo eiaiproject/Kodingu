@@ -278,7 +278,7 @@ export const htmlModulesPhase3 = [
             }),
             check(
               'The provider is named Kodingu.',
-              ({ doc }) => (parseJsonLd(doc) || {}).provider?.name === 'Kodingu'
+              ({ doc }) => parseJsonLd(doc)?.provider?.name === 'Kodingu'
             )
           ]
         )

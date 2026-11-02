@@ -72,6 +72,18 @@ const MEASURE = () => {
     return [...idCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id);
   };
 
+  const clippedByAncestor = (el) => {
+    let parent = el.parentElement;
+    while (parent && parent !== document.documentElement) {
+      const style = getComputedStyle(parent);
+      if (style.overflowX !== 'visible' && parent.getBoundingClientRect().right <= vw + 1) {
+        return true;
+      }
+      parent = parent.parentElement;
+    }
+    return false;
+  };
+
   const measureOverflow = () => {
     const outside = [];
     for (const el of document.querySelectorAll('body *')) {
@@ -79,17 +91,7 @@ const MEASURE = () => {
       if (getComputedStyle(el).position === 'fixed') continue;
       const rect = el.getBoundingClientRect();
       if (rect.right <= vw + 1 && rect.left >= -1) continue;
-      let parent = el.parentElement;
-      let clipped = false;
-      while (parent && parent !== document.documentElement) {
-        const style = getComputedStyle(parent);
-        if (style.overflowX !== 'visible' && parent.getBoundingClientRect().right <= vw + 1) {
-          clipped = true;
-          break;
-        }
-        parent = parent.parentElement;
-      }
-      if (!clipped) {
+      if (!clippedByAncestor(el)) {
         outside.push({
           sel: selectorOf(el),
           left: Math.round(rect.left),

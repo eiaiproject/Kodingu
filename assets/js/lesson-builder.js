@@ -25,17 +25,20 @@ export const challenge = (prompt, requirements, starter, solution, hint, tests) 
   tests
 });
 
-export const lesson = (id, title, minutes, objective, theory, quizData, challengeData, extra = {}) => ({
-  id,
-  title,
-  minutes,
-  xp: 25,
-  ...extra,
-  objective,
-  theory,
-  quiz: quizData,
-  challenge: challengeData
-});
+export const lesson = (id, title, minutes, objective, theory, ...practice) => {
+  const [quizData, challengeData, extra = {}] = practice;
+  return {
+    id,
+    title,
+    minutes,
+    xp: 25,
+    ...extra,
+    objective,
+    theory,
+    quiz: quizData,
+    challenge: challengeData
+  };
+};
 
 export const lessonModule = (id, title, description, lessons) => ({
   id,

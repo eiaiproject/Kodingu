@@ -150,16 +150,21 @@ function checkProjects() {
   }
 }
 
+function challengeProblems(challenge) {
+  return [
+    !challenge.summary && 'summary',
+    !challenge.starter && 'starter',
+    !challenge.solution && 'solution',
+    !challenge.hint && 'hint',
+    challenge.language !== 'html' && !challenge.preview && 'preview',
+    !challenge.tests?.length && 'tests',
+    !['html', 'css', 'js'].includes(challenge.language) && 'language'
+  ].filter(Boolean);
+}
+
 function checkChallenges() {
   for (const challenge of extraChallenges) {
-    const problems = [];
-    if (!challenge.summary) problems.push('summary');
-    if (!challenge.starter) problems.push('starter');
-    if (!challenge.solution) problems.push('solution');
-    if (!challenge.hint) problems.push('hint');
-    if (challenge.language !== 'html' && !challenge.preview) problems.push('preview');
-    if (!challenge.tests?.length) problems.push('tests');
-    if (!['html', 'css', 'js'].includes(challenge.language)) problems.push('language');
+    const problems = challengeProblems(challenge);
     assert(!problems.length, `${challenge.id} is complete`, problems.join(', '));
   }
 }
