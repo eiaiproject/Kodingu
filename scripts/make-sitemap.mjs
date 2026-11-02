@@ -30,7 +30,7 @@ for (const challenge of extraChallenges) {
 
 const body = paths
   .map((path) => {
-    const escaped = path.replace(/&/g, '&amp;');
+    const escaped = path.replaceAll('&', '&amp;');
     return `  <url><loc>${ORIGIN}${escaped}</loc></url>`;
   })
   .join('\n');

@@ -1,4 +1,4 @@
-const CACHE = 'kodingu-v2';
+const CACHE = 'kodingu-v3';
 
 const SHELL = [
   'index.html',
@@ -27,6 +27,7 @@ const SHELL = [
   'assets/js/data-css.js',
   'assets/js/data-helpers.js',
   'assets/js/data-html-2.js',
+  'assets/js/lesson-builder.js',
   'assets/js/data-html-3.js',
   'assets/js/data-js-data.js',
   'assets/js/data-js.js',
@@ -70,7 +71,7 @@ async function networkFirst(request) {
   const cache = await caches.open(CACHE);
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
+    if (response.ok) await cache.put(request, response.clone());
     return response;
   } catch (error) {
     const url = new URL(request.url);
@@ -89,7 +90,7 @@ async function cacheFirst(request) {
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
+  if (response.ok) await cache.put(request, response.clone());
   return response;
 }
 

@@ -3,7 +3,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]+$/, '');
+const rootPath = fileURLToPath(new URL('..', import.meta.url));
+const root = rootPath.endsWith(sep) ? rootPath.slice(0, -1) : rootPath;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -52,8 +53,8 @@ export async function loadHeaderRules() {
 function matchesPattern(pattern, pathname) {
   if (pattern === '/*') return true;
   const source = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*/g, '.*');
+    .replace(/[.+^${}()|[\]\\]/g, String.raw`\$&`)
+    .replaceAll('*', '.*');
   return new RegExp(`^${source}$`).test(pathname);
 }
 
@@ -70,7 +71,7 @@ async function isFile(path) {
 async function resolveFile(pathname) {
   if (pathname.endsWith('/')) {
     const index = join(insideRoot(pathname) || root, 'index.html');
-    return isFile(index) ? index : null;
+    return (await isFile(index)) ? index : null;
   }
   const direct = insideRoot(pathname);
   if (!direct) return null;

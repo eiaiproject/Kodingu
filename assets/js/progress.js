@@ -38,6 +38,13 @@ function renderStats() {
   const streak = currentStreak(progress);
   const streakState = getStreakState(progress);
   const tokens = progress.tokens || 0;
+  let streakNote = 'Finish a lesson today to start';
+  if (streak) {
+    const ending = streakState.protectedByFreeze
+      ? ' · a freeze covers the missed day'
+      : ' in a row';
+    streakNote = pluralize(streak, 'day') + ending;
+  }
 
   mount.innerHTML = `
     <div class="stat">
@@ -48,9 +55,7 @@ function renderStats() {
     <div class="stat">
       <p class="stat-label">Streak</p>
       <p class="stat-value">${streak}</p>
-      <p class="stat-note">${streak
-        ? pluralize(streak, 'day') + (streakState.protectedByFreeze ? ' · a freeze covers the missed day' : ' in a row')
-        : 'Finish a lesson today to start'}</p>
+      <p class="stat-note">${streakNote}</p>
     </div>
     <div class="stat">
       <p class="stat-label">Lessons</p>

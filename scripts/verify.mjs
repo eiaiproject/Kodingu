@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { startServer } from './dev-server.mjs';
+import { runSeries } from './series.mjs';
 import { courses, getAllLessons } from '../assets/js/data.js';
 import { projects } from '../assets/js/data-projects.js';
 import { extraChallenges } from '../assets/js/data-challenges.js';
@@ -24,7 +25,8 @@ function pass(message) {
 function fail(message, detail = '') {
   checks += 1;
   failures += 1;
-  console.log(`  FAIL  ${message}${detail ? ` :: ${detail}` : ''}`);
+  const suffix = detail ? ` :: ${detail}` : '';
+  console.log(`  FAIL  ${message}${suffix}`);
 }
 
 function assert(condition, message, detail) {
@@ -35,6 +37,13 @@ function assert(condition, message, detail) {
 const lessons = courses.flatMap((course) =>
   getAllLessons(course).map((lesson) => ({ course, lesson }))
 );
+const lessonFilter = process.argv
+  .filter((argument) => argument.startsWith('--lesson='))
+  .flatMap((argument) => argument.slice('--lesson='.length).split(','))
+  .filter(Boolean);
+const selectedLessons = lessonFilter.length
+  ? lessons.filter(({ lesson }) => lessonFilter.includes(lesson.id))
+  : lessons;
 const everything = [
   ...lessons.map((entry) => entry.lesson),
   ...projects,
@@ -47,7 +56,7 @@ const EXPECTED_TOTALS = {
   js: { lessons: 11, xp: 290 }
 };
 
-function checkData() {
+function checkCatalog() {
   console.log('\nData integrity');
 
   const seen = new Set();
@@ -62,7 +71,6 @@ function checkData() {
   assert(extraChallenges.length === 6, `6 extra challenges (found ${extraChallenges.length})`);
 
   let lessonXp = 0;
-  let tests = 0;
   for (const course of courses) {
     const list = getAllLessons(course);
     const xp = list.reduce((sum, lesson) => sum + lesson.xp, 0);
@@ -80,39 +88,57 @@ function checkData() {
   const challengeXp = extraChallenges.reduce((sum, challenge) => sum + challenge.xp, 0);
   assert(projectXp === 430, `project XP totals 430 (found ${projectXp})`);
   assert(challengeXp === 185, `challenge XP totals 185 (found ${challengeXp})`);
+}
 
+function lessonShapeProblems(lesson, language) {
+  const problems = [];
+  if (!lesson.title) problems.push('title');
+  if (!lesson.objective) problems.push('objective');
+  if (!lesson.minutes) problems.push('minutes');
+  if (!lesson.xp) problems.push('xp');
+  if (!Array.isArray(lesson.theory) || !lesson.theory.length) problems.push('theory');
+  if (!lesson.quiz || !Array.isArray(lesson.quiz.options)) problems.push('quiz');
+  if (lesson.quiz && !(lesson.quiz.answer >= 0 && lesson.quiz.answer < lesson.quiz.options.length)) {
+    problems.push('quiz answer out of range');
+  }
+  if (!lesson.quiz?.explanation) problems.push('quiz explanation');
+  if ((language === 'css' || language === 'js') && !lesson.preview) problems.push('preview');
+  return problems;
+}
+
+function challengeShapeProblems(challenge) {
+  const problems = [];
+  if (!challenge.prompt) problems.push('challenge prompt');
+  if (!Array.isArray(challenge.requirements) || !challenge.requirements.length) problems.push('requirements');
+  if (!challenge.starter) problems.push('starter');
+  if (!challenge.solution) problems.push('solution');
+  if (!challenge.hint) problems.push('hint');
+  if (!Array.isArray(challenge.tests) || !challenge.tests.length) problems.push('tests');
+  for (const test of challenge.tests || []) {
+    if (typeof test.run !== 'function') problems.push('a test has no run function');
+    if (!test.label) problems.push('a test has no label');
+  }
+  return problems;
+}
+
+function checkLessonContent() {
+  let tests = 0;
   for (const { course, lesson } of lessons) {
     const language = lesson.language || course.language || 'html';
-    const problems = [];
-    if (!lesson.title) problems.push('title');
-    if (!lesson.objective) problems.push('objective');
-    if (!lesson.minutes) problems.push('minutes');
-    if (!lesson.xp) problems.push('xp');
-    if (!Array.isArray(lesson.theory) || !lesson.theory.length) problems.push('theory');
-    if (!lesson.quiz || !Array.isArray(lesson.quiz.options)) problems.push('quiz');
-    if (lesson.quiz && !(lesson.quiz.answer >= 0 && lesson.quiz.answer < lesson.quiz.options.length)) {
-      problems.push('quiz answer out of range');
-    }
-    if (!lesson.quiz?.explanation) problems.push('quiz explanation');
     const challenge = lesson.challenge || {};
-    if (!challenge.prompt) problems.push('challenge prompt');
-    if (!Array.isArray(challenge.requirements) || !challenge.requirements.length) problems.push('requirements');
-    if (!challenge.starter) problems.push('starter');
-    if (!challenge.solution) problems.push('solution');
-    if (!challenge.hint) problems.push('hint');
-    if (!Array.isArray(challenge.tests) || !challenge.tests.length) problems.push('tests');
-    if ((language === 'css' || language === 'js') && !lesson.preview) problems.push('preview');
-    for (const test of challenge.tests || []) {
-      if (typeof test.run !== 'function') problems.push('a test has no run function');
-      if (!test.label) problems.push('a test has no label');
-    }
+    const problems = [
+      ...lessonShapeProblems(lesson, language),
+      ...challengeShapeProblems(challenge)
+    ];
     assert(!problems.length, `${lesson.id} is complete`, problems.join(', '));
     tests += (challenge.tests || []).length;
   }
   assert(tests === 255, `255 automated checks in lesson content (found ${tests})`);
   const challengeTests = extraChallenges.reduce((sum, challenge) => sum + challenge.tests.length, 0);
   assert(tests + challengeTests === 289, `289 checks across lessons and challenges (found ${tests + challengeTests})`);
+}
 
+function checkProjects() {
   for (const project of projects) {
     const problems = [];
     if (!project.starter) problems.push('starter');
@@ -122,7 +148,9 @@ function checkData() {
     if (!project.related?.length) problems.push('related');
     assert(!problems.length, `${project.id} is complete`, problems.join(', '));
   }
+}
 
+function checkChallenges() {
   for (const challenge of extraChallenges) {
     const problems = [];
     if (!challenge.summary) problems.push('summary');
@@ -134,6 +162,13 @@ function checkData() {
     if (!['html', 'css', 'js'].includes(challenge.language)) problems.push('language');
     assert(!problems.length, `${challenge.id} is complete`, problems.join(', '));
   }
+}
+
+function checkData() {
+  checkCatalog();
+  checkLessonContent();
+  checkProjects();
+  checkChallenges();
 }
 
 function waitForSummary() {
@@ -154,10 +189,21 @@ async function openPage(page, base, path) {
   await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
 }
 
+async function setEditor(page, selector, value) {
+  await page.$eval(
+    selector,
+    (editor, text) => {
+      editor.value = text;
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+    value
+  );
+}
+
 async function runLesson(page, base, course, lesson) {
   await openPage(page, base, `/lesson.html?course=${course.id}&lesson=${lesson.id}`);
   await page.waitForSelector('#editor-code', { timeout: 15000 });
-  await page.fill('#editor-code', lesson.challenge.solution);
+  await setEditor(page, '#editor-code', lesson.challenge.solution);
   await page.click('#check-code');
   const summary = await page.evaluate(waitForSummary);
   const failedLabels = await page.$$eval('.check-item.is-fail', (nodes) =>
@@ -182,7 +228,7 @@ async function runLesson(page, base, course, lesson) {
 async function runChallenge(page, base, challenge) {
   await openPage(page, base, `/challenge.html?challenge=${challenge.id}`);
   await page.waitForSelector('#challenge-editor', { timeout: 15000 });
-  await page.fill('#challenge-editor', challenge.solution);
+  await setEditor(page, '#challenge-editor', challenge.solution);
   await page.click('#check-challenge');
   const summary = await page.evaluate(waitForSummary);
   const failedLabels = await page.$$eval('.check-item.is-fail', (nodes) =>
@@ -206,7 +252,7 @@ async function runProject(page, base, project) {
 
   const boxes = await page.$$('.checklist input[data-check]');
   assert(boxes.length === project.requirements.length, `${project.id}: every requirement has a self-check`);
-  for (const box of boxes) await box.check();
+  await runSeries(boxes, (box) => box.check());
   await page.click('#finish-project');
   await page.waitForSelector('#finish-panel.is-complete', { timeout: 5000 });
   pass(`${project.id}: finishes with every self-check ticked`);
@@ -215,7 +261,7 @@ async function runProject(page, base, project) {
 async function runUnitChecks(page, base) {
   await openPage(page, base, '/index.html');
   const streak = await page.evaluate(async () => {
-    const app = await import('/assets/js/app.js');
+    const app = await import(new URL('/assets/js/app.js', window.location.origin).href);
     const keyFor = (offset) => {
       const date = new Date();
       date.setDate(date.getDate() - offset);
@@ -237,7 +283,7 @@ async function runUnitChecks(page, base) {
   assert(streak.stale.streak === 0, 'streak: a three day gap ends the streak even with a freeze');
 
   const projectChecks = await page.evaluate(async () => {
-    const app = await import('/assets/js/app.js');
+    const app = await import(new URL('/assets/js/app.js', window.location.origin).href);
     const project = { id: 'unit-project', requirements: ['Alpha', 'Beta', 'Gamma'] };
     localStorage.setItem('kodingu.progress.v1', JSON.stringify({ projectChecks: { 'unit-project': [0, 2] } }));
     const migrated = app.getProjectChecks(project);
@@ -257,7 +303,7 @@ async function runUnitChecks(page, base) {
     projectChecks.migrated.join(',')
   );
   assert(
-    [...projectChecks.afterEdit].sort().join(',') === 'Alpha,Gamma',
+    [...projectChecks.afterEdit].sort((a, b) => a.localeCompare(b)).join(',') === 'Alpha,Gamma',
     'project checks: reordering requirements keeps the same items ticked',
     projectChecks.afterEdit.join(',')
   );
@@ -278,7 +324,7 @@ async function checkPages(page, base) {
     '/certificate.html?course=html',
     '/404.html'
   ];
-  for (const path of pages) {
+  await runSeries(pages, async (path) => {
     const response = await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('h1', { state: 'attached', timeout: 10000 });
     const heading = (await page.textContent('h1'))?.replace(/\s+/g, ' ').trim() || '';
@@ -287,7 +333,7 @@ async function checkPages(page, base) {
       `${path} renders with an h1`,
       `status ${response?.status()}, heading "${heading}"`
     );
-  }
+  });
 
   await page.goto(`${base}/404.html`, { waitUntil: 'domcontentloaded' });
   const emptyLinks = await page.$$eval('a', (links) =>
@@ -367,7 +413,7 @@ async function checkSeo(base) {
     '404.html'
   ];
 
-  for (const file of files) {
+  await runSeries(files, async (file) => {
     const html = await (await fetch(`${base}/${file}`)).text();
     const required = [
       'name="description"',
@@ -380,7 +426,7 @@ async function checkSeo(base) {
     if (file !== '404.html') required.push('rel="canonical"');
     const missing = required.filter((needle) => !html.includes(needle));
     assert(!missing.length, `${file}: description, social, and canonical tags`, missing.join(', '));
-  }
+  });
 
   const notFound = await (await fetch(`${base}/404.html`)).text();
   assert(notFound.includes('noindex'), '404.html asks search engines not to index it');
@@ -390,18 +436,19 @@ async function checkSeo(base) {
   const height = png.readUInt32BE(20);
   assert(width === 1200 && height === 630, `share image is 1200x630 (found ${width}x${height})`);
 
-  for (const file of ['index.html', 'catalog.html']) {
+  await runSeries(['index.html', 'catalog.html'], async (file) => {
     const html = await (await fetch(`${base}/${file}`)).text();
     const block = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html);
     let valid = false;
     try {
       JSON.parse(block[1]);
       valid = true;
-    } catch (error) {
+    } catch {
+      // Invalid structured data is a failed check, not a page error.
       valid = false;
     }
     assert(valid, `${file}: JSON-LD parses`);
-  }
+  });
 
   const sitemap = await (await fetch(`${base}/sitemap.xml`)).text();
   const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
@@ -411,10 +458,10 @@ async function checkSeo(base) {
   assert(robots.includes('sitemap.xml'), 'robots.txt points at the sitemap');
 
   const broken = [];
-  for (const location of locations) {
+  await runSeries(locations, async (location) => {
     const response = await fetch(location.replace('https://kodingu.pages.dev', base));
     if (response.status !== 200) broken.push(`${location} ${response.status}`);
-  }
+  });
   assert(!broken.length, 'every sitemap URL resolves', broken.slice(0, 4).join(' | '));
 }
 
@@ -499,18 +546,18 @@ async function main() {
     (only.size === 0 || only.has('all') || wants('projects'));
 
   if (wants('lessons')) {
-    console.log(`\nLessons (${lessons.length})`);
-    for (const { course, lesson } of lessons) await runLesson(page, server.url, course, lesson);
+    console.log(`\nLessons (${selectedLessons.length})`);
+    await runSeries(selectedLessons, ({ course, lesson }) => runLesson(page, server.url, course, lesson));
   }
 
   if (wants('challenges')) {
     console.log(`\nExtra challenges (${extraChallenges.length})`);
-    for (const challenge of extraChallenges) await runChallenge(page, server.url, challenge);
+    await runSeries(extraChallenges, (challenge) => runChallenge(page, server.url, challenge));
   }
 
   if (wants('projects')) {
     console.log(`\nGuided projects (${projects.length})`);
-    for (const project of projects) await runProject(page, server.url, project);
+    await runSeries(projects, (project) => runProject(page, server.url, project));
   }
 
   if (wants('pages')) {
@@ -543,9 +590,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error(error);
   process.exitCode = 1;
   // A failure can leave the dev server listening, which keeps Node alive.
   setTimeout(() => process.exit(1), 250);
-});
+}

@@ -969,7 +969,8 @@
 /* Lesson layout */
 .lesson-layout {
   display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr);
+  grid-template-columns: 17rem minmax(0, 760px);
+  justify-content: space-between;
   gap: clamp(2rem, 5vw, 4.5rem);
   align-items: start;
   padding-block: 2rem 5rem;
@@ -1184,6 +1185,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  min-height: 32px;
   padding: 0.25rem 0.4rem;
   border: 0;
   border-radius: 2px;
@@ -1797,6 +1799,7 @@
 }
 
 .mission-desc {
+  max-width: 56ch;
   margin-top: 0.15rem;
   color: var(--ink-meta);
   font-size: 0.82rem;
@@ -2517,7 +2520,7 @@
   font-size: 0.8rem;
 }
 
-/* Reading measure and layout balance */
+/* Reading measure */
 .theory p,
 .theory li,
 .theory .note,
@@ -2526,21 +2529,8 @@
   max-width: 62ch;
 }
 
-.mission-desc {
-  max-width: 56ch;
-}
-
-.copy-code {
-  min-height: 32px;
-}
-
 .breadcrumb + .section-label {
   margin-top: 0.9rem;
-}
-
-.lesson-layout {
-  grid-template-columns: 17rem minmax(0, 760px);
-  justify-content: space-between;
 }
 
 /* Responsive */

@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from './dev-server.mjs';
+import { runSeries } from './series.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const outDir = join(root, 'artifacts', 'audit');
@@ -59,61 +60,69 @@ const MEASURE = () => {
   const label = (el) =>
     (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 48);
   const selectorOf = (el) => {
-    const cls = String(el.className || '').trim().split(/\s+/).filter(Boolean)[0];
+    const cls = String(el.className || '').trim().split(/\s+/).find(Boolean);
     return el.tagName.toLowerCase() + (cls ? '.' + cls : '');
   };
 
-  const idCounts = new Map();
-  document.querySelectorAll('[id]').forEach((el) => {
-    idCounts.set(el.id, (idCounts.get(el.id) || 0) + 1);
-  });
-  const duplicateIds = [...idCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id);
+  const measureDuplicateIds = () => {
+    const idCounts = new Map();
+    document.querySelectorAll('[id]').forEach((el) => {
+      idCounts.set(el.id, (idCounts.get(el.id) || 0) + 1);
+    });
+    return [...idCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id);
+  };
 
-  const outside = [];
-  for (const el of document.querySelectorAll('body *')) {
-    if (!visible(el)) continue;
-    if (getComputedStyle(el).position === 'fixed') continue;
-    const rect = el.getBoundingClientRect();
-    if (rect.right <= vw + 1 && rect.left >= -1) continue;
-    let parent = el.parentElement;
-    let clipped = false;
-    while (parent && parent !== document.documentElement) {
-      const style = getComputedStyle(parent);
-      if (style.overflowX !== 'visible' && parent.getBoundingClientRect().right <= vw + 1) {
-        clipped = true;
-        break;
+  const measureOverflow = () => {
+    const outside = [];
+    for (const el of document.querySelectorAll('body *')) {
+      if (!visible(el)) continue;
+      if (getComputedStyle(el).position === 'fixed') continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.right <= vw + 1 && rect.left >= -1) continue;
+      let parent = el.parentElement;
+      let clipped = false;
+      while (parent && parent !== document.documentElement) {
+        const style = getComputedStyle(parent);
+        if (style.overflowX !== 'visible' && parent.getBoundingClientRect().right <= vw + 1) {
+          clipped = true;
+          break;
+        }
+        parent = parent.parentElement;
       }
-      parent = parent.parentElement;
+      if (!clipped) {
+        outside.push({
+          sel: selectorOf(el),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right)
+        });
+      }
     }
-    if (!clipped) {
-      outside.push({ sel: selectorOf(el), left: Math.round(rect.left), right: Math.round(rect.right) });
-    }
-  }
+    return outside;
+  };
 
-  const controlSelector =
-    'button, input, select, textarea, .button, .icon-button, .catalog-title, .course-row-link, .challenge-row, .lesson-row a, .project-title, .sidebar-toggle, .nav-toggle';
-  const smallControls = [];
-  for (const el of document.querySelectorAll(controlSelector)) {
-    if (!visible(el)) continue;
-    if (getComputedStyle(el).display === 'inline' && el.tagName === 'A') continue;
-    if (el.tagName === 'INPUT' && (el.type === 'radio' || el.type === 'checkbox')) {
-      const labelRect = el.closest('label')?.getBoundingClientRect();
-      if (labelRect && labelRect.width >= 44 && labelRect.height >= 44) continue;
+  const measureSmallControls = () => {
+    const controlSelector =
+      'button, input, select, textarea, .button, .icon-button, .catalog-title, .course-row-link, .challenge-row, .lesson-row a, .project-title, .sidebar-toggle, .nav-toggle';
+    const smallControls = [];
+    for (const el of document.querySelectorAll(controlSelector)) {
+      if (!visible(el)) continue;
+      if (getComputedStyle(el).display === 'inline' && el.tagName === 'A') continue;
+      if (el.tagName === 'INPUT' && (el.type === 'radio' || el.type === 'checkbox')) {
+        const labelRect = el.closest('label')?.getBoundingClientRect();
+        if (labelRect && labelRect.width >= 44 && labelRect.height >= 44) continue;
+      }
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 44 || rect.height < 44) {
+        smallControls.push({
+          sel: selectorOf(el),
+          label: label(el),
+          w: Math.round(rect.width),
+          h: Math.round(rect.height)
+        });
+      }
     }
-    const rect = el.getBoundingClientRect();
-    if (rect.width < 44 || rect.height < 44) {
-      smallControls.push({
-        sel: selectorOf(el),
-        label: label(el),
-        w: Math.round(rect.width),
-        h: Math.round(rect.height)
-      });
-    }
-  }
-
-  const emptyLinks = [...document.querySelectorAll('a')].filter(
-    (el) => !el.textContent.trim() && !el.getAttribute('aria-label') && !el.querySelector('svg')
-  ).length;
+    return smallControls;
+  };
 
   const parseColor = (value) => {
     const match = /rgba?\(([^)]+)\)/.exec(value);
@@ -145,86 +154,117 @@ const MEASURE = () => {
     return { r: 255, g: 255, b: 255, a: 1 };
   };
 
-  const contrastFailures = [];
-  const contrastUnknown = [];
-  for (const el of document.querySelectorAll('h1, h2, h3, p, li, a, button, span, dd, dt, label, output')) {
-    if (!visible(el)) continue;
-    const text = el.textContent.replace(/\s+/g, ' ').trim();
-    if (!text || el.children.length > 0) continue;
-    const style = getComputedStyle(el);
-    const size = Number.parseFloat(style.fontSize);
-    if (!Number.isFinite(size) || size < 10) continue;
-    const foreground = parseColor(style.color);
-    const background = backgroundOf(el);
-    if (!foreground || !background) {
-      contrastUnknown.push(selectorOf(el));
-      continue;
+  const measureContrast = () => {
+    const failures = [];
+    let unknown = 0;
+    for (const el of document.querySelectorAll(
+      'h1, h2, h3, p, li, a, button, span, dd, dt, label, output'
+    )) {
+      if (!visible(el)) continue;
+      const text = el.textContent.replace(/\s+/g, ' ').trim();
+      if (!text || el.children.length > 0) continue;
+      const style = getComputedStyle(el);
+      const size = Number.parseFloat(style.fontSize);
+      if (!Number.isFinite(size) || size < 10) continue;
+      const foreground = parseColor(style.color);
+      const background = backgroundOf(el);
+      if (!foreground || !background) {
+        unknown += 1;
+        continue;
+      }
+      const ratio = contrast(foreground, background);
+      const bold = Number.parseInt(style.fontWeight, 10) >= 700;
+      const large = size >= 24 || (bold && size >= 18.66);
+      const required = large ? 3 : 4.5;
+      if (ratio + 0.01 < required) {
+        failures.push({
+          sel: selectorOf(el),
+          ratio: Number(ratio.toFixed(2)),
+          required,
+          text: text.slice(0, 40)
+        });
+      }
     }
-    const ratio = contrast(foreground, background);
-    const bold = Number.parseInt(style.fontWeight, 10) >= 700;
-    const large = size >= 24 || (bold && size >= 18.66);
-    const required = large ? 3 : 4.5;
-    if (ratio + 0.01 < required) {
-      contrastFailures.push({
-        sel: selectorOf(el),
-        ratio: Number(ratio.toFixed(2)),
-        required,
-        text: text.slice(0, 40)
-      });
-    }
-  }
+    return { failures, unknown };
+  };
 
-  const shells = [...document.querySelectorAll('.shell')].map((el) => {
-    const rect = el.getBoundingClientRect();
-    return {
-      left: Math.round(rect.left),
-      right: Math.round(vw - rect.right),
-      width: Math.round(rect.width)
-    };
-  });
-  const shellMismatches = shells.filter((item) => Math.abs(item.left - item.right) > 1);
-
-  const spreads = {};
-  for (const selector of ['.stat', '.reward-card', '.mission-item', '.course-row', '.history-card', '.catalog-item']) {
-    const widths = [...document.querySelectorAll(selector)]
-      .filter(visible)
-      .map((el) => Math.round(el.getBoundingClientRect().width));
-    if (widths.length > 1) {
-      spreads[selector] = {
-        count: widths.length,
-        min: Math.min(...widths),
-        max: Math.max(...widths),
-        spread: Math.max(...widths) - Math.min(...widths)
+  const measureSymmetry = () => {
+    const shells = [...document.querySelectorAll('.shell')].map((el) => {
+      const rect = el.getBoundingClientRect();
+      return {
+        left: Math.round(rect.left),
+        right: Math.round(vw - rect.right),
+        width: Math.round(rect.width)
       };
+    });
+    const shellMismatches = shells.filter((item) => Math.abs(item.left - item.right) > 1);
+    const spreads = {};
+    for (const selector of [
+      '.stat',
+      '.reward-card',
+      '.mission-item',
+      '.course-row',
+      '.history-card',
+      '.catalog-item'
+    ]) {
+      const widths = [...document.querySelectorAll(selector)]
+        .filter(visible)
+        .map((el) => Math.round(el.getBoundingClientRect().width));
+      if (widths.length > 1) {
+        spreads[selector] = {
+          count: widths.length,
+          min: Math.min(...widths),
+          max: Math.max(...widths),
+          spread: Math.max(...widths) - Math.min(...widths)
+        };
+      }
     }
-  }
+    return { shells, shellMismatches, spreads };
+  };
 
-  const wideText = [];
-  for (const el of document.querySelectorAll('.theory p, .lede, .course-description, .challenge-prompt, .mission-desc')) {
-    if (!visible(el)) continue;
-    const rect = el.getBoundingClientRect();
-    const size = Number.parseFloat(getComputedStyle(el).fontSize);
-    const chars = rect.width / (size * 0.5);
-    if (chars > 80) {
-      wideText.push({ sel: selectorOf(el), chars: Math.round(chars), width: Math.round(rect.width) });
+  const measureGridGaps = () => {
+    const gridGaps = [];
+    for (const grid of document.querySelectorAll(
+      '.hero-grid, .method-grid, .split-grid, .course-hero-grid, .lesson-layout'
+    )) {
+      const outer = grid.getBoundingClientRect();
+      const children = [...grid.children].filter(visible).map((el) => el.getBoundingClientRect());
+      if (children.length < 2) continue;
+      // A stacked layout shares one left edge and may cap its measure; that is a column, not a lopsided grid.
+      const lefts = children.map((rect) => Math.round(rect.left));
+      if (lefts.every((left) => Math.abs(left - lefts[0]) <= 1)) continue;
+      const leftGap = Math.round(Math.min(...children.map((rect) => rect.left)) - outer.left);
+      const rightGap = Math.round(outer.right - Math.max(...children.map((rect) => rect.right)));
+      if (leftGap > 1 || rightGap > 1) {
+        gridGaps.push({ cls: String(grid.className), leftGap, rightGap });
+      }
     }
-  }
+    return gridGaps;
+  };
 
-  const gridGaps = [];
-  for (const grid of document.querySelectorAll('.hero-grid, .method-grid, .split-grid, .course-hero-grid, .lesson-layout')) {
-    const outer = grid.getBoundingClientRect();
-    const children = [...grid.children].filter(visible).map((el) => el.getBoundingClientRect());
-    if (children.length < 2) continue;
-    // A stacked layout shares one left edge and may cap its measure; that is a column, not a lopsided grid.
-    const lefts = children.map((rect) => Math.round(rect.left));
-    if (lefts.every((left) => Math.abs(left - lefts[0]) <= 1)) continue;
-    const leftGap = Math.round(Math.min(...children.map((rect) => rect.left)) - outer.left);
-    const rightGap = Math.round(outer.right - Math.max(...children.map((rect) => rect.right)));
-    if (leftGap > 1 || rightGap > 1) {
-      gridGaps.push({ cls: String(grid.className), leftGap, rightGap });
+  const measureWideText = () => {
+    const wideText = [];
+    for (const el of document.querySelectorAll(
+      '.theory p, .lede, .course-description, .challenge-prompt, .mission-desc'
+    )) {
+      if (!visible(el)) continue;
+      const rect = el.getBoundingClientRect();
+      const size = Number.parseFloat(getComputedStyle(el).fontSize);
+      const chars = rect.width / (size * 0.5);
+      if (chars > 80) {
+        wideText.push({ sel: selectorOf(el), chars: Math.round(chars), width: Math.round(rect.width) });
+      }
     }
-  }
+    return wideText;
+  };
 
+  const duplicateIds = measureDuplicateIds();
+  const outside = measureOverflow();
+  const smallControls = measureSmallControls();
+  const contrastResult = measureContrast();
+  const symmetry = measureSymmetry();
+  const gridGaps = measureGridGaps();
+  const wideText = measureWideText();
   const h1 = document.querySelector('h1');
   const h2 = document.querySelector('h2');
 
@@ -238,9 +278,11 @@ const MEASURE = () => {
     smallControls,
     duplicateIds,
     h1Count: document.querySelectorAll('h1').length,
-    emptyLinks,
-    contrast: { failures: contrastFailures, unknown: contrastUnknown.length },
-    symmetry: { shellCount: shells.length, shellMismatches, spreads },
+    emptyLinks: [...document.querySelectorAll('a')].filter(
+      (el) => !el.textContent.trim() && !el.getAttribute('aria-label') && !el.querySelector('svg')
+    ).length,
+    contrast: contrastResult,
+    symmetry,
     gridGaps,
     wideText,
     type: {
@@ -256,8 +298,8 @@ const server = await startServer({ port: 0 });
 await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
 
-for (const theme of THEMES) {
-  for (const width of WIDTHS) {
+await runSeries(THEMES, async (theme) => {
+  await runSeries(WIDTHS, async (width) => {
     const context = await browser.newContext({
       viewport: { width, height: 900 },
       serviceWorkers: 'block',
@@ -268,7 +310,7 @@ for (const theme of THEMES) {
     }, theme);
     const page = await context.newPage();
 
-    for (const target of PAGES) {
+    await runSeries(PAGES, async (target) => {
       await page.goto(`${server.url}${target.url}`, { waitUntil: 'load' });
       await page.evaluate(() => document.fonts.ready);
       await page.waitForTimeout(120);
@@ -280,14 +322,17 @@ for (const theme of THEMES) {
         await mkdir(dir, { recursive: true });
         await page.screenshot({ path: join(dir, `${target.id}.png`), fullPage: true });
       }
-    }
+    });
     await context.close();
-  }
-}
+  });
+});
 
 // Populated header is the densest state; check it separately.
-for (const width of [390, 320]) {
-  const context = await browser.newContext({ viewport: { width, height: 900 }, serviceWorkers: 'block' });
+await runSeries([390, 320], async (width) => {
+  const context = await browser.newContext({
+    viewport: { width, height: 900 },
+    serviceWorkers: 'block'
+  });
   await context.addInitScript(() => {
     localStorage.setItem('kodingu.theme', 'light');
     localStorage.setItem(
@@ -311,40 +356,49 @@ for (const width of [390, 320]) {
   const metrics = await page.evaluate(MEASURE);
   report.push({ theme: 'light', width, page: 'home-populated', ...metrics });
   await mkdir(join(outDir, 'light', String(width)), { recursive: true });
-  await page.screenshot({ path: join(outDir, 'light', String(width), 'home-populated.png'), fullPage: true });
+  await page.screenshot({
+    path: join(outDir, 'light', String(width), 'home-populated.png'),
+    fullPage: true
+  });
   await context.close();
-}
+});
 
 const focusIssues = [];
 {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    serviceWorkers: 'block'
+  });
   const page = await context.newPage();
-  for (const [name, url] of [
-    ['home', '/index.html'],
-    ['lesson', '/lesson.html?course=html&lesson=html-01']
-  ]) {
-    await page.goto(`${server.url}${url}`, { waitUntil: 'load' });
-    await page.evaluate(() => document.fonts.ready);
-    for (let index = 0; index < 22; index += 1) {
-      await page.keyboard.press('Tab');
-      const missing = await page.evaluate(() => {
-        const el = document.activeElement;
-        if (!el || el === document.body || el === document.documentElement) return null;
-        if (el.tagName === 'IFRAME') return null;
-        const style = getComputedStyle(el);
-        const ring =
-          (style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) > 0) ||
-          style.boxShadow !== 'none';
-        if (ring) return null;
-        return {
-          tag: el.tagName.toLowerCase(),
-          cls: String(el.className || '').slice(0, 32),
-          label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 28)
-        };
+  await runSeries(
+    [
+      ['home', '/index.html'],
+      ['lesson', '/lesson.html?course=html&lesson=html-01']
+    ],
+    async ([name, url]) => {
+      await page.goto(`${server.url}${url}`, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await runSeries(Array.from({ length: 22 }), async () => {
+        await page.keyboard.press('Tab');
+        const missing = await page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el || el === document.body || el === document.documentElement) return null;
+          if (el.tagName === 'IFRAME') return null;
+          const style = getComputedStyle(el);
+          const ring =
+            (style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) > 0) ||
+            style.boxShadow !== 'none';
+          if (ring) return null;
+          return {
+            tag: el.tagName.toLowerCase(),
+            cls: String(el.className || '').slice(0, 32),
+            label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 28)
+          };
+        });
+        if (missing) focusIssues.push({ page: name, ...missing });
       });
-      if (missing) focusIssues.push({ page: name, ...missing });
     }
-  }
+  );
   await context.close();
 }
 
@@ -400,13 +454,16 @@ const totals = {
 console.log(JSON.stringify(totals, null, 2));
 
 for (const entry of report) {
+  const gaps = entry.gridGaps
+    .map((gap) => `${gap.cls}:${gap.leftGap}/${gap.rightGap}`)
+    .join(',');
   const issues = [
     entry.overflow.doc > 0 ? `doc+${entry.overflow.doc}` : '',
     entry.outside.length ? `outside:${entry.outside.length}` : '',
     entry.smallControls.length ? `small:${entry.smallControls.length}` : '',
     entry.contrast.failures.length ? `contrast:${entry.contrast.failures.length}` : '',
     entry.symmetry.shellMismatches.length ? `asym:${entry.symmetry.shellMismatches.length}` : '',
-    entry.gridGaps.length ? `grid:${entry.gridGaps.map((gap) => `${gap.cls}:${gap.leftGap}/${gap.rightGap}`).join(',')}` : '',
+    entry.gridGaps.length ? `grid:${gaps}` : '',
     entry.wideText.length ? `wide:${entry.wideText.length}` : ''
   ].filter(Boolean);
   if (issues.length) {

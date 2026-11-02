@@ -277,10 +277,13 @@ export function getProjectChecks(project) {
   const stored = progress.projectChecks[project.id] || [];
   // Older builds stored requirement indexes. Resolve them to the requirement
   // text so editing the list cannot silently move a saved check to another item.
-  const checks = stored
-    .map((entry) => (Number.isInteger(entry) ? requirements[entry] : entry))
-    .filter((entry) => requirements.includes(entry));
-  return requirements.filter((requirement) => checks.includes(requirement));
+  const requirementSet = new Set(requirements);
+  const checks = new Set(
+    stored
+      .map((entry) => (Number.isInteger(entry) ? requirements[entry] : entry))
+      .filter((entry) => requirementSet.has(entry))
+  );
+  return requirements.filter((requirement) => checks.has(requirement));
 }
 
 export function toggleProjectRequirement(project, requirement, checked) {
