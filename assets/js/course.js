@@ -9,6 +9,7 @@ import {
   progressBar,
   setMetaDescription,
   setPageTitle,
+  setSocialMeta,
   statusLabel
 } from './app.js';
 
@@ -55,21 +56,7 @@ function lessonRows(course, lessons, completed) {
     .join('');
 }
 
-function plannedMarkup(course) {
-  if (!course.planned) return '';
-  const items = course.planned.map((topic) => `<li>${escapeHtml(topic)}</li>`).join('');
-  return `<ul class="planned">${items}</ul>`;
-}
-
 function courseSideMarkup(course, lessons, stats, xp) {
-  if (!lessons.length) {
-    return `
-      <span class="status status-progress">${statusLabel(course.status)}</span>
-      <p class="muted">Lessons are not ready yet.</p>
-      <a class="button button-primary" href="lesson.html?course=html&amp;lesson=html-01">Open the HTML course</a>
-    `;
-  }
-
   const courseHref = `course.html?course=${encodeURIComponent(course.id)}`;
   const targetLesson = stats.percent === 100 ? lessons[0] : stats.nextLesson;
   const nextHref = targetLesson
@@ -98,24 +85,7 @@ function courseSideMarkup(course, lessons, stats, xp) {
     `;
 }
 
-function plannedCourseMarkup(course) {
-  return `
-      <section class="planned-block" aria-labelledby="planned-heading">
-        <p class="section-label">In progress</p>
-        <h2 id="planned-heading">What is planned</h2>
-        <p>${escapeHtml(course.note || 'This course is being written.')}</p>
-        ${plannedMarkup(course)}
-        <div class="hero-actions">
-          <a class="button button-secondary" href="catalog.html">Back to the catalog</a>
-        </div>
-      </section>
-    `;
-}
-
 function courseContentMarkup(course, progress) {
-  const note = course.status !== 'open' && course.note
-    ? `<p class="course-note">${escapeHtml(course.note)}</p>`
-    : '';
   const modules = course.modules
     .map((module, moduleIndex) => {
       const rows = lessonRows(course, module.lessons, progress.completed);
@@ -129,17 +99,22 @@ function courseContentMarkup(course, progress) {
             </div>
             <p class="muted mono">${pluralize(module.lessons.length, 'lesson')}</p>
           </div>
-          <ul class="lesson-rows">${rows}</ul>
+          <ol class="lesson-rows">${rows}</ol>
         </section>
       `;
     })
     .join('');
-  return `${note}${modules}`;
+  return modules;
 }
 
 function renderCourse(course) {
   setPageTitle(course.title);
   setMetaDescription(course.description);
+  setSocialMeta({
+    title: course.title,
+    description: course.description,
+    path: `/course?course=${encodeURIComponent(course.id)}`
+  });
 
   const lessons = getAllLessons(course);
   const stats = getCourseStats(course);
@@ -172,11 +147,6 @@ function renderCourse(course) {
       ${side}
     </aside>
   `;
-
-  if (!course.modules.length) {
-    content.innerHTML = plannedCourseMarkup(course);
-    return;
-  }
 
   content.innerHTML = courseContentMarkup(course, progress);
 }

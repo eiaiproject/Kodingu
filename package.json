@@ -1,0 +1,16 @@
+{
+  "name": "kodingu",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local tooling for the Kodingu static site. The site itself has no build step and ships no runtime dependencies.",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "verify": "node scripts/verify.mjs",
+    "og-image": "node scripts/make-og-image.mjs",
+    "sitemap": "node scripts/make-sitemap.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  },
+  "type": "module"
+}

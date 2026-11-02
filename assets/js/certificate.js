@@ -8,7 +8,8 @@ import {
   initChrome,
   pluralize,
   progressBar,
-  setPageTitle
+  setPageTitle,
+  setSocialMeta
 } from './app.js';
 
 const NAME_KEY = 'kodingu.certificate.name';
@@ -49,6 +50,11 @@ function renderNotFound() {
 function renderLocked(stats) {
   const lessons = getAllLessons(course);
   setPageTitle(`${course.title} certificate`);
+  setSocialMeta({
+    title: `${course.title} certificate`,
+    description: `A local record of the completed Kodingu ${course.title} course.`,
+    path: `/certificate?course=${encodeURIComponent(course.id)}`
+  });
   if (pageHeading) pageHeading.textContent = `${course.title} certificate`;
   if (!main) return;
   const next = stats.nextLesson;
@@ -79,6 +85,11 @@ function renderCertificate() {
   const completedAt = completedDates[completedDates.length - 1] || new Date().toISOString();
   const name = readName();
   setPageTitle(`${course.title} certificate`);
+  setSocialMeta({
+    title: `${course.title} certificate`,
+    description: `A local record of the completed Kodingu ${course.title} course.`,
+    path: `/certificate?course=${encodeURIComponent(course.id)}`
+  });
   if (pageHeading) pageHeading.textContent = `${course.title} certificate`;
   if (!main) return;
 

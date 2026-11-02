@@ -2,6 +2,7 @@ import { projects } from './data-projects.js';
 import {
   escapeHtml,
   getProgress,
+  getProjectChecks,
   icon,
   initChrome,
   progressBar,
@@ -10,9 +11,7 @@ import {
 
 function projectState(project, progress) {
   const complete = Boolean(progress.completedProjects[project.id]);
-  const checks = Array.isArray(progress.projectChecks[project.id])
-    ? progress.projectChecks[project.id].length
-    : 0;
+  const checks = getProjectChecks(project).length;
   return {
     complete,
     checks,

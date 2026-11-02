@@ -48,7 +48,7 @@ function renderGroups(progress) {
             </div>
             <span class="challenge-group-count">${items.length} challenges</span>
           </div>
-          <ul class="challenge-list">
+          <ol class="challenge-list">
             ${items
               .map((challenge) => {
                 const complete = Boolean(progress.completedChallenges[challenge.id]);
@@ -77,7 +77,7 @@ function renderGroups(progress) {
                 `;
               })
               .join('')}
-          </ul>
+          </ol>
         </section>
       `;
     })

@@ -2517,6 +2517,32 @@
   font-size: 0.8rem;
 }
 
+/* Reading measure and layout balance */
+.theory p,
+.theory li,
+.theory .note,
+.challenge-prompt,
+.project-related {
+  max-width: 62ch;
+}
+
+.mission-desc {
+  max-width: 56ch;
+}
+
+.copy-code {
+  min-height: 32px;
+}
+
+.breadcrumb + .section-label {
+  margin-top: 0.9rem;
+}
+
+.lesson-layout {
+  grid-template-columns: 17rem minmax(0, 760px);
+  justify-content: space-between;
+}
+
 /* Responsive */
 @media (max-width: 1080px) {
   .header-stats {
@@ -2535,7 +2561,7 @@
   }
 
   .hero-demo {
-    max-width: 640px;
+    max-width: 42rem;
   }
 
   .method-grid,

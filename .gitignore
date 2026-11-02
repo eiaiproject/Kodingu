@@ -4,6 +4,8 @@
 .test-downloads/
 coverage/
 node_modules/
+.browser-deps/
+artifacts/
 
 .env
 .env.*

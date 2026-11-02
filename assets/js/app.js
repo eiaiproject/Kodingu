@@ -165,18 +165,25 @@ function dayDifference(fromKey, toKey) {
   return Math.round((to - from) / 86400000);
 }
 
+export function getStreakState(progress = getProgress()) {
+  const streak = Number(progress.streak) || 0;
+  if (!progress.lastLessonDay || !streak) {
+    return { streak: 0, protectedByFreeze: false };
+  }
+  const gap = dayDifference(progress.lastLessonDay, dayKey());
+  if (gap === 0 || gap === 1) {
+    return { streak, protectedByFreeze: false };
+  }
+  if (gap === 2 && (progress.streakFreezes || 0) > 0) {
+    // The freeze covers the missed day. It is spent when the next lesson is
+    // finished, so the caller needs to know the streak is still provisional.
+    return { streak, protectedByFreeze: true };
+  }
+  return { streak: 0, protectedByFreeze: false };
+}
+
 export function currentStreak(progress = getProgress()) {
-  if (!progress.lastLessonDay) return 0;
-  if (progress.lastLessonDay === dayKey() || progress.lastLessonDay === yesterdayKey()) {
-    return progress.streak || 0;
-  }
-  if (
-    (progress.streakFreezes || 0) > 0 &&
-    dayDifference(progress.lastLessonDay, dayKey()) === 2
-  ) {
-    return progress.streak || 0;
-  }
-  return 0;
+  return getStreakState(progress).streak;
 }
 
 export function completeLesson(lesson) {
@@ -264,17 +271,30 @@ export function completeChallenge(challenge) {
   return { completed: true, progress, xpEarned, tokensEarned };
 }
 
-export function toggleProjectRequirement(projectId, index, checked) {
+export function getProjectChecks(project) {
   const progress = getProgress();
-  if (!Number.isInteger(index) || index < 0) {
-    return progress.projectChecks[projectId] || [];
+  const requirements = project.requirements || [];
+  const stored = progress.projectChecks[project.id] || [];
+  // Older builds stored requirement indexes. Resolve them to the requirement
+  // text so editing the list cannot silently move a saved check to another item.
+  const checks = stored
+    .map((entry) => (Number.isInteger(entry) ? requirements[entry] : entry))
+    .filter((entry) => requirements.includes(entry));
+  return requirements.filter((requirement) => checks.includes(requirement));
+}
+
+export function toggleProjectRequirement(project, requirement, checked) {
+  const progress = getProgress();
+  const requirements = project.requirements || [];
+  if (!requirements.includes(requirement)) {
+    return getProjectChecks(project);
   }
-  const checks = new Set(progress.projectChecks[projectId] || []);
-  if (checked) checks.add(index);
-  else checks.delete(index);
-  progress.projectChecks[projectId] = [...checks].sort((first, second) => first - second);
+  const checks = new Set(getProjectChecks(project));
+  if (checked) checks.add(requirement);
+  else checks.delete(requirement);
+  progress.projectChecks[project.id] = requirements.filter((item) => checks.has(item));
   saveProgress(progress);
-  return progress.projectChecks[projectId];
+  return progress.projectChecks[project.id];
 }
 
 export function completeProject(project) {
@@ -282,8 +302,8 @@ export function completeProject(project) {
   if (progress.completedProjects[project.id]) {
     return { completed: false, progress };
   }
-  const checks = new Set(progress.projectChecks[project.id] || []);
-  const ready = project.requirements.every((item, index) => checks.has(index));
+  const checks = new Set(getProjectChecks(project));
+  const ready = project.requirements.every((item) => checks.has(item));
   if (!ready) {
     return { completed: false, reason: 'Check every requirement first.', progress };
   }
@@ -590,7 +610,12 @@ function updateHeaderStats(progress) {
     xpNode.querySelector('span').textContent = `${xp} XP`;
   }
   if (streakNode) {
-    streakNode.setAttribute('aria-label', `${streak} day streak`);
+    const streakState = getStreakState(progress);
+    const label = streakState.protectedByFreeze
+      ? `${streakState.streak} day streak, a freeze is covering the missed day`
+      : `${streakState.streak} day streak`;
+    streakNode.setAttribute('aria-label', label);
+    streakNode.title = label;
     streakNode.querySelector('span').textContent = String(streak);
   }
   if (tokensNode) {
@@ -734,10 +759,23 @@ export function renderFooter() {
   `;
 }
 
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  const local = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  if (window.location.protocol !== 'https:' && !local) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((error) => {
+      // Offline support is optional; the site works without the worker.
+      console.warn('Kodingu: the offline worker did not register.', error);
+    });
+  });
+}
+
 export function initChrome() {
   renderHeader();
   renderFooter();
   hydrateIcons();
+  registerServiceWorker();
 }
 
 export function setPageTitle(title) {
@@ -747,6 +785,36 @@ export function setPageTitle(title) {
 export function setMetaDescription(description) {
   const meta = document.querySelector('meta[name="description"]');
   if (meta) meta.setAttribute('content', description);
+}
+
+const FALLBACK_ORIGIN = 'https://kodingu.pages.dev';
+
+function siteOrigin() {
+  const origin = window.location.origin;
+  return origin && origin !== 'null' ? origin : FALLBACK_ORIGIN;
+}
+
+function setMetaContent(selector, value) {
+  const node = document.querySelector(selector);
+  if (node) node.setAttribute('content', value);
+}
+
+export function setSocialMeta({ title = '', description = '', path = '' } = {}) {
+  if (title) {
+    setMetaContent('meta[property="og:title"]', title);
+    setMetaContent('meta[name="twitter:title"]', title);
+  }
+  if (description) {
+    setMetaContent('meta[property="og:description"]', description);
+    setMetaContent('meta[name="twitter:description"]', description);
+    setMetaContent('meta[name="description"]', description);
+  }
+  if (path) {
+    const url = `${siteOrigin()}${path}`;
+    setMetaContent('meta[property="og:url"]', url);
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute('href', url);
+  }
 }
 
 export function findCourse(id) {
