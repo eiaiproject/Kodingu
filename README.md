@@ -9,26 +9,27 @@ There is no account, backend, or AI tutor. Progress, drafts, and preferences sta
 ## Contents
 
 - **3 open courses:** HTML, CSS, and JavaScript.
-- **40 lessons:** 20 HTML, 12 CSS, and 8 JavaScript.
-- **1,045 lesson XP:** 515 HTML, 315 CSS, and 215 JavaScript.
+- **52 lessons:** 26 HTML, 15 CSS, and 11 JavaScript.
+- **1,345 lesson XP:** 665 HTML, 390 CSS, and 290 JavaScript.
 - **4 guided projects:** a recipe page, a reading room, a field notes counter, and a small studio page.
 - **6 extra challenges:** two HTML, two CSS, and two JavaScript.
 - **615 practice XP:** 430 from guided projects and 185 from extra challenges.
 - **In-browser editor:** live preview, run controls, automated checks, hints, and solutions.
 - **Progress and rewards:** XP, tokens, daily missions, streak freezes, freeze chests, weekly league, history, and course certificates.
 - **Light and dark themes:** responsive layouts, keyboard controls, and reduced-motion support.
+- **Offline after the first visit:** a service worker caches the pages, styles, and scripts.
 
 ## Stack
 
-Plain HTML, CSS, and JavaScript with ES modules. No framework, package manager, or build step. Icons are generated from Reicon, and the three fonts load from Google Fonts.
+Plain HTML, CSS, and JavaScript with ES modules. No framework, build step, or runtime dependency ships with the site. Icons are generated from Reicon, and the three fonts load from Google Fonts. `package.json` exists only for local verification tooling.
 
 ## Courses
 
 | Course | Modules | Lessons | Lesson XP | What it covers |
 | --- | ---: | ---: | ---: | --- |
-| HTML | 4 | 20 | 515 | Document structure, headings, paragraphs, links, lists, images, quotations, code, figures, semantic sections, forms, tables, ids, classes, comments, and a capstone page. |
-| CSS | 2 | 12 | 315 | Rules, selectors, the cascade, color and contrast, typography, the box model, flexbox, grid, and responsive layout. |
-| JavaScript | 2 | 8 | 215 | Values, variables, functions, conditions, loops, DOM updates, events, and a small interactive page. |
+| HTML | 6 | 26 | 665 | Document structure, headings, paragraphs, links, lists, images, quotations, code, figures, semantic sections, forms, tables, ids, classes, comments, metadata and search, Open Graph, JSON-LD, responsive images, video and captions, landmarks, and a capstone page. |
+| CSS | 3 | 15 | 390 | Rules, selectors, the cascade, color and contrast, typography, the box model, flexbox, grid, responsive layout, custom properties, positioning, and reduced-motion transitions. |
+| JavaScript | 3 | 11 | 290 | Values, variables, functions, conditions, loops, DOM updates, events, objects, array methods, error handling, and a small interactive page. |
 
 Every course lesson has a quiz and a code challenge. A lesson is complete when the quiz is correct and every challenge check passes.
 
@@ -115,7 +116,11 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 ├── certificate.html           Printable certificate
 ├── 404.html                   Not found page
 ├── _headers                   Cloudflare Pages security headers
+├── sw.js                      Offline cache worker
+├── robots.txt                 Crawler rules and sitemap pointer
+├── sitemap.xml                Generated list of public URLs
 ├── favicon.svg                Brand mark and favicon
+├── assets/og-image.png        Generated 1200x630 share image
 ├── DESIGN.md                  Visual direction and design log
 ├── AGENTS.md                  Notes for coding agents
 ├── assets/
@@ -126,34 +131,70 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 │       ├── app.js             Shared chrome, storage, progress helpers
 │       ├── data.js            Course definitions and the first HTML module
 │       ├── data-html-2.js     HTML modules 2 to 4
+│       ├── data-html-3.js     HTML metadata, media, and landmarks
 │       ├── data-css.js        CSS foundations
 │       ├── data-css-layout.js CSS layout lessons
+│       ├── data-css-modern.js Custom properties, positioning, motion
 │       ├── data-js.js         JavaScript lessons
+│       ├── data-js-data.js    Objects, arrays, and errors
 │       ├── data-projects.js   Guided projects
 │       ├── data-challenges.js Extra challenges
 │       ├── data-helpers.js    Shared test helpers
 │       ├── gamification.js    Tokens, missions, league, freezes
 │       ├── js-runner.js       JavaScript test runner
 │       ├── runner-frame.js    Sandboxed runner frame
+│       ├── workspace.js       Shared editor, checks, drafts, and toggles
 │       ├── icons.js           Generated Reicon icons
 │       └── ...                Page scripts
 ├── scripts/
+│   ├── dev-server.mjs         Local server that applies _headers
+│   ├── verify.mjs             Data and browser verification harness
 │   ├── fetch-icons.mjs        Regenerate icons.js from Reicon
-│   └── make-favicon.mjs       Regenerate favicon.svg
+│   ├── make-favicon.mjs       Regenerate favicon.svg
+│   ├── make-og-image.mjs      Regenerate the share image
+│   └── make-sitemap.mjs       Regenerate sitemap.xml from the course data
+├── package.json               Dev tooling only; the site ships no dependencies
 └── anti-slop/                 Design audit notes
 ```
 
 ## Run locally
 
-ES modules need an HTTP server. From the project root:
+ES modules and the security headers need an HTTP server. From the project root:
 
 ```bash
-python3 -m http.server 4173
+npm install
+npm run dev
 ```
 
 Open [http://localhost:4173/](http://localhost:4173/).
 
-Any static server works. There is no package installation, build command, or test runner to start.
+The dev server reads `_headers`, so the browser runs the same CSP as production, and it resolves `/lesson` to `lesson.html` the way Cloudflare Pages does. `PORT` and `HOST` override the defaults.
+
+`python3 -m http.server 4173` also works for a quick look, but it ignores `_headers` and the extensionless URLs, so the security policy and the script runner cannot be tested that way.
+
+## Verify
+
+```bash
+npm install
+npx playwright install chromium
+npm run verify
+```
+
+The harness starts the dev server, checks the content data (unique IDs, XP totals, quiz answers, check functions, previews), then drives Chromium through every lesson, challenge, and project. It writes each documented solution into the editor, runs the checks, answers the quiz, finishes the work, and asserts the totals on the progress page. It also checks the CSP headers, the extensionless URLs, the offline worker, and the home demo.
+
+`node scripts/verify.mjs --only=data` runs a single group. Groups: `data`, `headers`, `seo`, `unit`, `lessons`, `challenges`, `projects`, `pages`, `totals`, `offline`.
+
+Chromium needs system libraries. If it cannot start, run `npx playwright install-deps chromium` with an account that can install packages.
+
+## Search and sharing
+
+Every page carries a description, a canonical URL, Open Graph and Twitter tags, and a robots rule. The home page and catalog also carry JSON-LD (WebSite and an ItemList of Course). Course, lesson, project, challenge, and certificate pages rewrite the canonical URL, title, and description at runtime from the current address.
+
+- `assets/og-image.png` is the 1200x630 share image. Rebuild it with `npm run og-image`.
+- `sitemap.xml` lists every public course, lesson, project, and challenge. Rebuild it with `npm run sitemap` after adding content.
+- `robots.txt` points crawlers at the sitemap, and `404.html` is marked noindex.
+
+Lessons are rendered in the browser, so a crawler that does not run JavaScript sees only the page shell. The metadata above lives in the HTML for that reason. Prerendering is the next step if search traffic matters more than the zero-build constraint.
 
 ## Deploy
 
@@ -176,7 +217,7 @@ To deploy the same static site:
 4. Commit and push the branch.
 5. Merge to `main`. A connected Cloudflare Pages project deploys `main` automatically.
 
-There is no separate build, lint, or test command. The in-app checks are part of the lesson content.
+`npm run verify` is the only automated check. Build, lint, and formatting steps do not exist.
 
 ## Adding or editing content
 
@@ -184,9 +225,12 @@ Course and lesson data live in `assets/js/data*.js`:
 
 - `data.js`: course definitions and the first HTML module.
 - `data-html-2.js`: HTML modules 2 to 4.
+- `data-html-3.js`: HTML metadata, media, and landmarks.
 - `data-css.js`: CSS foundations.
 - `data-css-layout.js`: CSS layout lessons.
+- `data-css-modern.js`: custom properties, positioning, and motion.
 - `data-js.js`: JavaScript lessons.
+- `data-js-data.js`: objects, array methods, and error handling.
 - `data-projects.js`: guided projects.
 - `data-challenges.js`: extra challenges.
 

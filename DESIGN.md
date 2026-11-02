@@ -4,7 +4,7 @@
 
 Kodingu is a small, quiet learning workspace for the web. It teaches HTML, CSS, and JavaScript through short lessons that are read, written, and checked in the browser. There is no account, no paywall, and no AI tutor.
 
-The first release opens all three courses: 20 HTML lessons, 12 CSS lessons, and 8 JavaScript lessons.
+The first release opens all three courses: 26 HTML lessons, 15 CSS lessons, and 11 JavaScript lessons.
 
 Design Read: a beginner coding school for quiet learners, in a Zen minimal Japanese-print style, dial ENERGY 1 / RHYTHM 2 / MOTION 1.
 

@@ -5,13 +5,16 @@ import {
   escapeHtml,
   formatRelativeDate,
   getProgress,
+  getProjectChecks,
   icon,
   initChrome,
   progressBar,
   setPageTitle,
+  setSocialMeta,
   toggleProjectRequirement,
   toast
 } from './app.js';
+import { mountWorkspace } from './workspace.js';
 
 const project = getProject(new URLSearchParams(window.location.search).get('project'));
 const main = document.querySelector('#project-main');
@@ -23,15 +26,6 @@ function readDraft() {
     return localStorage.getItem(`kodingu.projectDraft.${project.id}`);
   } catch (error) {
     return null;
-  }
-}
-
-function saveDraft(value) {
-  if (!project) return;
-  try {
-    localStorage.setItem(`kodingu.projectDraft.${project.id}`, value);
-  } catch (error) {
-    // Draft saving is optional; the editor keeps working without it.
   }
 }
 
@@ -144,7 +138,7 @@ function renderMain() {
   if (!main || !project) return;
   const progress = getProgress();
   const completed = Boolean(progress.completedProjects[project.id]);
-  const checks = new Set(progress.projectChecks[project.id] || []);
+  const checks = new Set(getProjectChecks(project));
   const draft = readDraft() ?? project.starter;
   const next = nextProject();
   const related = project.related
@@ -250,7 +244,7 @@ function renderMain() {
           .map(
             (requirement, index) => `
               <label class="checklist-item">
-                <input type="checkbox" data-check="${index}"${checks.has(index) ? ' checked' : ''}${completed ? ' disabled' : ''}>
+                <input type="checkbox" data-check="${index}"${checks.has(requirement) ? ' checked' : ''}${completed ? ' disabled' : ''}>
                 <span>${escapeHtml(requirement)}</span>
               </label>
             `
@@ -271,29 +265,53 @@ function renderMain() {
 }
 
 function wireWorkspace() {
-  const editor = document.querySelector('#project-editor');
-  const frame = document.querySelector('#project-frame');
-  const errorMount = document.querySelector('#project-error');
+  const checklist = document.querySelector('.checklist');
   const finishButton = document.querySelector('#finish-project');
   const finishChecks = document.querySelector('#finish-checks');
   const finishHint = document.querySelector('#finish-hint');
-  const checklist = document.querySelector('.checklist');
 
-  const runPreview = async () => {
-    if (!editor || !frame) return;
-    const result = await buildProjectPreview(editor.value);
-    frame.srcdoc = result.html;
-    if (errorMount) {
-      errorMount.hidden = !result.error;
-      errorMount.textContent = result.error ? `Script error: ${result.error.message}` : '';
+  const updateChecklistState = () => {
+    const saved = getProjectChecks(project);
+    const ready = saved.length === project.requirements.length;
+    if (finishChecks) finishChecks.textContent = `${saved.length} of ${project.requirements.length} checked`;
+    if (finishButton) finishButton.disabled = !ready;
+    if (finishHint) {
+      finishHint.textContent = ready ? 'Ready when you are.' : 'Check every requirement before finishing.';
     }
   };
 
-  void runPreview();
+  const workspace = mountWorkspace({
+    editor: document.querySelector('#project-editor'),
+    frame: document.querySelector('#project-frame'),
+    errorMount: document.querySelector('#project-error'),
+    runButton: document.querySelector('#run-project'),
+    resetButton: document.querySelector('#reset-project'),
+    language: 'html',
+    tests: [],
+    starter: project.starter,
+    draftKey: `kodingu.projectDraft.${project.id}`,
+    build: buildProjectPreview,
+    onBuild: (result) => {
+      const errorMount = document.querySelector('#project-error');
+      if (!errorMount) return;
+      errorMount.hidden = !result.error;
+      errorMount.textContent = result.error ? `Script error: ${result.error.message}` : '';
+    },
+    resetMessage: 'Workspace reset to the starter. The checklist is clear.',
+    onReset: () => {
+      document.querySelectorAll('.checklist input').forEach((input) => {
+        input.checked = false;
+        toggleProjectRequirement(project, project.requirements[Number(input.dataset.check)], false);
+      });
+      updateChecklistState();
+    }
+  });
 
-  document.querySelector('#run-project')?.addEventListener('click', runPreview);
+  void workspace.runPreview();
+  updateChecklistState();
 
   document.querySelector('#download-project')?.addEventListener('click', () => {
+    const editor = document.querySelector('#project-editor');
     if (!editor) return;
     try {
       const blob = new Blob([editor.value], { type: 'text/html' });
@@ -313,55 +331,16 @@ function wireWorkspace() {
     }
   });
 
-  document.querySelector('#reset-project')?.addEventListener('click', () => {
-    if (!editor) return;
-    editor.value = project.starter;
-    try {
-      localStorage.removeItem(`kodingu.projectDraft.${project.id}`);
-    } catch (error) {
-      // The editor still resets for this page view when storage is unavailable.
-    }
-    document.querySelectorAll('.checklist input').forEach((input) => {
-      input.checked = false;
-      toggleProjectRequirement(project.id, Number(input.dataset.check), false);
-    });
-    if (finishChecks) finishChecks.textContent = `0 of ${project.requirements.length} checked`;
-    if (finishButton) finishButton.disabled = true;
-    if (finishHint) finishHint.textContent = 'Check every requirement before finishing.';
-    void runPreview();
-    toast('Workspace reset to the starter. The checklist is clear.');
-    editor.focus();
-  });
-
-  let saveTimer;
-  editor?.addEventListener('input', () => {
-    window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => saveDraft(editor.value), 400);
-  });
-
-  editor?.addEventListener('keydown', (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-      event.preventDefault();
-      void runPreview();
-    }
-  });
-
   checklist?.addEventListener('change', (event) => {
     const input = event.target.closest('input[data-check]');
     if (!input) return;
     const index = Number(input.dataset.check);
-    const saved = toggleProjectRequirement(project.id, index, input.checked);
-    if (finishChecks) finishChecks.textContent = `${saved.length} of ${project.requirements.length} checked`;
-    if (finishButton) finishButton.disabled = saved.length !== project.requirements.length;
-    if (finishHint) {
-      finishHint.textContent = saved.length === project.requirements.length
-        ? 'Ready when you are.'
-        : 'Check every requirement before finishing.';
-    }
+    toggleProjectRequirement(project, project.requirements[index], input.checked);
+    updateChecklistState();
   });
 
   finishButton?.addEventListener('click', () => {
-    if (editor) saveDraft(editor.value);
+    workspace.saveDraft();
     const result = completeProject(project);
     if (!result.completed) {
       toast(result.reason || 'This project is already complete.');
@@ -376,6 +355,11 @@ function wireWorkspace() {
 initChrome();
 if (project) {
   setPageTitle(project.title);
+  setSocialMeta({
+    title: project.title,
+    description: project.summary,
+    path: `/project?project=${encodeURIComponent(project.id)}`
+  });
   renderSidebar();
   renderMain();
 } else {

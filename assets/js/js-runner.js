@@ -13,7 +13,7 @@ function runnerDocument(source, preview, requestId, tests) {
   const encodedPayload = JSON.stringify({
     source,
     targetOrigin: window.location.origin,
-    tests: tests.map((test) => (test.run || test).toString())
+    tests: tests.map((test) => test.source || (test.run || test).toString())
   }).replaceAll('<', String.raw`\u003c`);
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body data-kodingu-runner-id="${requestId}">${preview}
 <script data-kodingu-runner type="application/json" id="kodingu-runner-source">${encodedPayload}</script>

@@ -1,7 +1,5 @@
 import { extraChallenges, getChallenge } from './data-challenges.js';
-import { runJavaScriptLesson } from './js-runner.js';
 import {
-  buildPreviewDocument,
   completeChallenge,
   escapeHtml,
   formatRelativeDate,
@@ -10,8 +8,10 @@ import {
   initChrome,
   progressBar,
   setPageTitle,
+  setSocialMeta,
   toast
 } from './app.js';
+import { mountWorkspace, wireCopyCode, wireToggle } from './workspace.js';
 
 const params = new URLSearchParams(window.location.search);
 const challenge = getChallenge(params.get('challenge'));
@@ -30,15 +30,6 @@ function readDraft() {
     return localStorage.getItem(`kodingu.challengeDraft.${challenge.id}`);
   } catch (error) {
     return null;
-  }
-}
-
-function saveDraft(value) {
-  if (!challenge) return;
-  try {
-    localStorage.setItem(`kodingu.challengeDraft.${challenge.id}`, value);
-  } catch (error) {
-    // Draft saving is optional; the editor keeps working without it.
   }
 }
 
@@ -271,169 +262,48 @@ function renderMain() {
 }
 
 function wireChallenge() {
-  const editor = document.querySelector('#challenge-editor');
-  const frame = document.querySelector('#challenge-frame');
-  const errorMount = document.querySelector('#challenge-error');
-  const checkButton = document.querySelector('#check-challenge');
   const finishButton = document.querySelector('#finish-challenge');
-  const state = { testsPassed: false };
-
-  const renderError = (error) => {
-    if (!errorMount) return;
-    errorMount.hidden = !error;
-    errorMount.textContent = error ? `Script error: ${error.message}` : '';
-  };
-
-  const runPreview = async () => {
-    if (!editor || !frame) return;
-    frame.srcdoc = await buildPreviewDocument(editor.value, {
-      language: challenge.language,
-      preview: challenge.preview
-    });
-  };
+  let workspace;
 
   const updateFinishState = () => {
     if (!finishButton) return;
+    const testsPassed = workspace?.state.testsPassed === true;
     const checks = document.querySelector('#finish-checks');
     const hint = document.querySelector('#finish-hint');
-    finishButton.disabled = !state.testsPassed;
+    finishButton.disabled = !testsPassed;
     if (checks) {
-      checks.classList.toggle('is-done', state.testsPassed);
-      checks.innerHTML = `${state.testsPassed ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
+      checks.classList.toggle('is-done', testsPassed);
+      checks.innerHTML = `${testsPassed ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
     }
     if (hint) {
-      hint.textContent = state.testsPassed ? 'Ready when you are.' : 'Pass every check to finish.';
+      hint.textContent = testsPassed ? 'Ready when you are.' : 'Pass every check to finish.';
     }
   };
 
-  const renderChecks = (results) => {
-    const items = document.querySelectorAll('.check-item');
-    results.forEach((pass, index) => {
-      const item = items[index];
-      if (!item) return;
-      item.classList.toggle('is-pass', pass);
-      item.classList.toggle('is-fail', !pass);
-      const iconMount = item.querySelector('.check-icon');
-      const stateMount = item.querySelector('.check-state');
-      if (iconMount) {
-        iconMount.innerHTML = pass
-          ? icon('CheckCircle', { size: 16 })
-          : icon('CloseCircle', { size: 16 });
-      }
-      if (stateMount) stateMount.textContent = pass ? 'Pass' : 'Needs work';
-    });
-    const summary = document.querySelector('#checks-summary');
-    const passed = results.filter(Boolean).length;
-    if (summary) {
-      summary.textContent = passed === results.length
-        ? `All ${results.length} passed`
-        : `${passed} of ${results.length} passed`;
-    }
-  };
-
-  const checkCode = async () => {
-    if (!editor) return;
-    const raw = editor.value;
-    let results;
-
-    if (challenge.language === 'js') {
-      const runs = await Promise.all(
-        challenge.tests.map((test) => runJavaScriptLesson(raw, challenge.preview, [test]))
-      );
-      const failedRun = runs.find((run) => run.error);
-      renderError(failedRun?.error || null);
-      results = runs.map((run) => Boolean(run.results[0]));
-    } else {
-      renderError(null);
-      const markup = challenge.language === 'css'
-        ? await buildPreviewDocument(raw, { language: 'css', preview: challenge.preview })
-        : raw;
-      const doc = new DOMParser().parseFromString(markup, 'text/html');
-      const css = challenge.language === 'css' ? raw : '';
-      results = challenge.tests.map((test) => {
-        try {
-          return Boolean(test.run({ doc, raw, css }));
-        } catch (error) {
-          // A broken check is a failed check, not a page failure.
-          return false;
-        }
-      });
-    }
-
-    state.testsPassed = results.every(Boolean);
-    renderChecks(results);
-    void runPreview();
-    updateFinishState();
-    toast(state.testsPassed ? 'All checks passed.' : 'Some checks need work.');
-  };
-
-  void runPreview();
-  if (finishButton) updateFinishState();
-  document.querySelector('#run-challenge')?.addEventListener('click', runPreview);
-  checkButton?.addEventListener('click', checkCode);
-
-  document.querySelector('#reset-challenge')?.addEventListener('click', () => {
-    if (!editor) return;
-    editor.value = challenge.starter;
-    try {
-      localStorage.removeItem(`kodingu.challengeDraft.${challenge.id}`);
-    } catch (error) {
-      // The editor still resets for this page view when storage is unavailable.
-    }
-    state.testsPassed = false;
-    document.querySelectorAll('.check-item').forEach((item) => {
-      item.classList.remove('is-pass', 'is-fail');
-      const iconMount = item.querySelector('.check-icon');
-      const stateMount = item.querySelector('.check-state');
-      if (iconMount) iconMount.innerHTML = '<span class="check-pending"></span>';
-      if (stateMount) stateMount.textContent = 'Not run';
-    });
-    const summary = document.querySelector('#checks-summary');
-    if (summary) summary.textContent = 'Not run';
-    void runPreview();
-    renderError(null);
-    updateFinishState();
-    toast('Editor reset to the starter.');
-    editor.focus();
+  workspace = mountWorkspace({
+    editor: document.querySelector('#challenge-editor'),
+    frame: document.querySelector('#challenge-frame'),
+    errorMount: document.querySelector('#challenge-error'),
+    runButton: document.querySelector('#run-challenge'),
+    checkButton: document.querySelector('#check-challenge'),
+    resetButton: document.querySelector('#reset-challenge'),
+    language: challenge.language,
+    preview: challenge.preview,
+    tests: challenge.tests,
+    starter: challenge.starter,
+    draftKey: `kodingu.challengeDraft.${challenge.id}`,
+    onCheck: updateFinishState,
+    onReset: updateFinishState
   });
 
-  let saveTimer;
-  editor?.addEventListener('input', () => {
-    renderError(null);
-    window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => saveDraft(editor.value), 400);
-  });
+  void workspace.runPreview();
+  updateFinishState();
 
-  editor?.addEventListener('keydown', (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-      event.preventDefault();
-      if (event.shiftKey) void checkCode();
-      else void runPreview();
-    }
-  });
-
-  const hintToggle = document.querySelector('#hint-toggle');
-  const hint = document.querySelector('#hint');
-  hintToggle?.addEventListener('click', () => {
-    if (!hint) return;
-    const open = hint.hidden;
-    hint.hidden = !open;
-    hintToggle.setAttribute('aria-expanded', String(open));
-    hintToggle.textContent = open ? 'Hide hint' : 'Show hint';
-  });
-
-  const solutionToggle = document.querySelector('#solution-toggle');
-  const solution = document.querySelector('#solution');
-  solutionToggle?.addEventListener('click', () => {
-    if (!solution) return;
-    const open = solution.hidden;
-    solution.hidden = !open;
-    solutionToggle.setAttribute('aria-expanded', String(open));
-    solutionToggle.textContent = open ? 'Hide solution' : 'Show solution';
-  });
+  wireToggle('#hint-toggle', '#hint', 'Show hint', 'Hide hint');
+  wireToggle('#solution-toggle', '#solution', 'Show solution', 'Hide solution');
 
   finishButton?.addEventListener('click', () => {
-    if (editor) saveDraft(editor.value);
+    workspace.saveDraft();
     const result = completeChallenge(challenge);
     if (!result.completed) {
       toast('This challenge is already complete.');
@@ -444,28 +314,17 @@ function wireChallenge() {
     renderMain();
   });
 
-  main?.addEventListener('click', async (event) => {
-    const button = event.target.closest('.copy-code');
-    if (!button) return;
-    const code = button.closest('.code-block')?.querySelector('code')?.textContent || '';
-    try {
-      await navigator.clipboard.writeText(code);
-      const original = button.innerHTML;
-      button.innerHTML = `${icon('Check', { size: 14 })} Copied`;
-      window.setTimeout(() => {
-        button.innerHTML = original;
-      }, 2000);
-    } catch (error) {
-      // Clipboard access can be denied, so point the learner at manual copy.
-      console.warn('Kodingu: clipboard copy failed.', error);
-      toast('Copy failed. Select the code and copy it.');
-    }
-  });
+  wireCopyCode(main);
 }
 
 initChrome();
 if (challenge) {
   setPageTitle(challenge.title);
+  setSocialMeta({
+    title: challenge.title,
+    description: challenge.summary,
+    path: `/challenge?challenge=${encodeURIComponent(challenge.id)}`
+  });
   renderSidebar();
   renderMain();
 } else {

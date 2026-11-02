@@ -1,8 +1,6 @@
 import { getAllLessons, getLesson, getNextLesson, getPreviousLesson } from './data.js';
-import { runJavaScriptLesson } from './js-runner.js';
 import { TOKENS_PER_LESSON } from './gamification.js';
 import {
-  buildPreviewDocument,
   completeLesson,
   escapeHtml,
   formatRelativeDate,
@@ -14,8 +12,10 @@ import {
   recordActivity,
   recordQuiz,
   setPageTitle,
+  setSocialMeta,
   toast
 } from './app.js';
+import { mountWorkspace, wireCopyCode, wireToggle } from './workspace.js';
 
 const params = new URLSearchParams(window.location.search);
 const found = getLesson(params.get('course'), params.get('lesson'));
@@ -79,7 +79,7 @@ function renderSidebar() {
       <span class="sidebar-toggle-meta">${lessons.length} lessons ${icon('ChevronDown', { size: 16 })}</span>
     </button>
     <nav class="sidebar-lessons" id="sidebar-lessons" aria-label="Lessons" data-open="false">
-      <ul class="sidebar-list">
+      <ol class="sidebar-list">
         ${lessons
           .map(
             (item, index) => `
@@ -93,7 +93,7 @@ function renderSidebar() {
             `
           )
           .join('')}
-      </ul>
+      </ol>
     </nav>
   `;
 
@@ -211,6 +211,7 @@ function renderMain() {
     : `<a class="lesson-nav-next" href="course.html?course=${encodeURIComponent(course.id)}"><span class="lesson-nav-label">Course</span><span>Back to ${escapeHtml(course.title)}</span></a>`;
 
   main.innerHTML = `
+    <article class="lesson-article" aria-labelledby="lesson-title">
     <header class="lesson-head">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="catalog.html">Catalog</a>
@@ -219,7 +220,7 @@ function renderMain() {
         <span class="sep" aria-hidden="true">/</span>
         <span>Lesson ${String(index + 1).padStart(2, '0')}</span>
       </nav>
-      <h1>${escapeHtml(lesson.title)}</h1>
+      <h1 id="lesson-title">${escapeHtml(lesson.title)}</h1>
       <div class="lesson-meta-row">
         <span>${icon('BookOpen', { size: 16 })} ${escapeHtml(module.title)}</span>
         <span>${icon('Clock', { size: 16 })} ${lesson.minutes} min</span>
@@ -303,6 +304,7 @@ function renderMain() {
     </section>
 
     ${finishMarkup}
+    </article>
 
     <nav class="lesson-nav" aria-label="Lesson navigation">
       ${previousLink}
@@ -314,35 +316,14 @@ function renderMain() {
 }
 
 function wireLesson(lesson, quizDone) {
-  const main = document.querySelector('#lesson-main');
   const language = lesson.language || found.course.language || 'html';
-  const editor = document.querySelector('#editor-code');
-  const frame = document.querySelector('#editor-frame');
-  const runButton = document.querySelector('#run-code');
-  const checkButton = document.querySelector('#check-code');
-  const resetButton = document.querySelector('#reset-code');
-  const quizCheck = document.querySelector('#quiz-check');
   const finishButton = document.querySelector('#finish-lesson');
-  const scriptError = document.querySelector('#script-error');
-  const state = { quizCorrect: quizDone, testsPassed: false };
-
-  const renderScriptError = (error) => {
-    if (!scriptError) return;
-    scriptError.hidden = !error;
-    scriptError.textContent = error ? `Script error: ${error.message}` : '';
-  };
-
-  const runPreview = async () => {
-    if (frame && editor) {
-      frame.srcdoc = await buildPreviewDocument(editor.value, {
-        language,
-        preview: lesson.preview
-      });
-    }
-  };
+  const state = { quizCorrect: quizDone };
+  let workspace;
 
   const updateFinishState = () => {
     if (!finishButton) return;
+    const testsPassed = workspace?.state.testsPassed === true;
     const quiz = document.querySelector('#finish-quiz');
     const checks = document.querySelector('#finish-checks');
     const hint = document.querySelector('#finish-hint');
@@ -351,130 +332,38 @@ function wireLesson(lesson, quizDone) {
       quiz.innerHTML = `${state.quizCorrect ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Quiz`;
     }
     if (checks) {
-      checks.classList.toggle('is-done', state.testsPassed);
-      checks.innerHTML = `${state.testsPassed ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
+      checks.classList.toggle('is-done', testsPassed);
+      checks.innerHTML = `${testsPassed ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
     }
-    finishButton.disabled = !(state.quizCorrect && state.testsPassed);
+    finishButton.disabled = !(state.quizCorrect && testsPassed);
     if (hint) {
-      hint.textContent = state.quizCorrect && state.testsPassed
+      hint.textContent = state.quizCorrect && testsPassed
         ? 'Ready when you are.'
         : 'Answer the quiz and pass every check to finish.';
     }
   };
 
-  const renderChecks = (results) => {
-    const items = document.querySelectorAll('.check-item');
-    results.forEach((pass, index) => {
-      const item = items[index];
-      if (!item) return;
-      item.classList.toggle('is-pass', pass);
-      item.classList.toggle('is-fail', !pass);
-      const iconMount = item.querySelector('.check-icon');
-      const stateMount = item.querySelector('.check-state');
-      if (iconMount) {
-        iconMount.innerHTML = pass
-          ? icon('CheckCircle', { size: 16 })
-          : icon('CloseCircle', { size: 16 });
-      }
-      if (stateMount) stateMount.textContent = pass ? 'Pass' : 'Needs work';
-    });
-    const summary = document.querySelector('#checks-summary');
-    const passed = results.filter(Boolean).length;
-    if (summary) {
-      summary.textContent = passed === results.length
-        ? `All ${results.length} passed`
-        : `${passed} of ${results.length} passed`;
-    }
-  };
-
-  const checkCode = async () => {
-    if (!editor) return;
-    recordActivity('check', lesson.id);
-    const raw = editor.value;
-    let results;
-
-    if (language === 'js') {
-      const runs = await Promise.all(
-        lesson.challenge.tests.map((test) => runJavaScriptLesson(raw, lesson.preview, [test]))
-      );
-      const failedRun = runs.find((run) => run.error);
-      renderScriptError(failedRun?.error || null);
-      results = runs.map((run) => Boolean(run.results[0]));
-    } else {
-      renderScriptError(null);
-      const markup = language === 'css'
-        ? await buildPreviewDocument(raw, { language, preview: lesson.preview })
-        : raw;
-      const doc = new DOMParser().parseFromString(markup, 'text/html');
-      const css = language === 'css' ? raw : '';
-      results = lesson.challenge.tests.map((test) => {
-        try {
-          return Boolean(test.run({ doc, raw, css }));
-        } catch (error) {
-          // A broken check is a failed check, not a page failure.
-          return false;
-        }
-      });
-    }
-
-    state.testsPassed = results.every(Boolean);
-    renderChecks(results);
-    void runPreview();
-    updateFinishState();
-    toast(state.testsPassed ? 'All checks passed.' : 'Some checks need work.');
-  };
-
-  void runPreview();
-  if (finishButton) updateFinishState();
-
-  runButton?.addEventListener('click', runPreview);
-  checkButton?.addEventListener('click', checkCode);
-
-  resetButton?.addEventListener('click', () => {
-    if (!editor) return;
-    editor.value = lesson.challenge.starter;
-    try {
-      localStorage.removeItem(`kodingu.draft.${lesson.id}`);
-    } catch (error) {
-      // The editor still resets for this page view when storage is unavailable.
-    }
-    state.testsPassed = false;
-    document.querySelectorAll('.check-item').forEach((item) => {
-      item.classList.remove('is-pass', 'is-fail');
-      const iconMount = item.querySelector('.check-icon');
-      const stateMount = item.querySelector('.check-state');
-      if (iconMount) iconMount.innerHTML = '<span class="check-pending"></span>';
-      if (stateMount) stateMount.textContent = 'Not run';
-    });
-    const summary = document.querySelector('#checks-summary');
-    if (summary) summary.textContent = 'Not run';
-    void runPreview();
-    renderScriptError(null);
-    updateFinishState();
-    toast('Editor reset to the starter.');
-    editor.focus();
+  workspace = mountWorkspace({
+    editor: document.querySelector('#editor-code'),
+    frame: document.querySelector('#editor-frame'),
+    errorMount: document.querySelector('#script-error'),
+    runButton: document.querySelector('#run-code'),
+    checkButton: document.querySelector('#check-code'),
+    resetButton: document.querySelector('#reset-code'),
+    language,
+    preview: lesson.preview,
+    tests: lesson.challenge.tests,
+    starter: lesson.challenge.starter,
+    draftKey: `kodingu.draft.${lesson.id}`,
+    beforeCheck: () => recordActivity('check', lesson.id),
+    onCheck: updateFinishState,
+    onReset: updateFinishState
   });
 
-  let saveTimer;
-  editor?.addEventListener('input', () => {
-    renderScriptError(null);
-    window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => {
-      try {
-        localStorage.setItem(`kodingu.draft.${lesson.id}`, editor.value);
-      } catch (error) {
-        // Draft saving is optional; the editor keeps working without it.
-      }
-    }, 400);
-  });
+  void workspace.runPreview();
+  updateFinishState();
 
-  editor?.addEventListener('keydown', (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-      event.preventDefault();
-      if (event.shiftKey) void checkCode();
-      else void runPreview();
-    }
-  });
+  const quizCheck = document.querySelector('#quiz-check');
 
   quizCheck?.addEventListener('click', () => {
     const selected = document.querySelector('input[name="quiz"]:checked');
@@ -528,31 +417,14 @@ function wireLesson(lesson, quizDone) {
     });
   });
 
-  const hintToggle = document.querySelector('#hint-toggle');
-  const hint = document.querySelector('#hint');
-  hintToggle?.addEventListener('click', () => {
-    if (!hint) return;
-    const open = hint.hidden;
-    hint.hidden = !open;
-    hintToggle.setAttribute('aria-expanded', String(open));
-    hintToggle.textContent = open ? 'Hide hint' : 'Show hint';
-  });
-
-  const solutionToggle = document.querySelector('#solution-toggle');
-  const solution = document.querySelector('#solution');
-  solutionToggle?.addEventListener('click', () => {
-    if (!solution) return;
-    const open = solution.hidden;
-    solution.hidden = !open;
-    solutionToggle.setAttribute('aria-expanded', String(open));
-    solutionToggle.textContent = open ? 'Hide solution' : 'Show solution';
-    if (open) {
-      markSolutionViewed(lesson.id);
-      toast('Solution shown.');
-    }
+  wireToggle('#hint-toggle', '#hint', 'Show hint', 'Hide hint');
+  wireToggle('#solution-toggle', '#solution', 'Show solution', 'Hide solution', () => {
+    markSolutionViewed(lesson.id);
+    toast('Solution shown.');
   });
 
   finishButton?.addEventListener('click', () => {
+    workspace.saveDraft();
     const result = completeLesson(lesson);
     if (!result.completed) {
       toast('This lesson is already complete.');
@@ -564,23 +436,7 @@ function wireLesson(lesson, quizDone) {
     if (panel) panel.outerHTML = completedPanelMarkup();
   });
 
-  main?.addEventListener('click', async (event) => {
-    const button = event.target.closest('.copy-code');
-    if (!button) return;
-    const code = button.closest('.code-block')?.querySelector('code')?.textContent || '';
-    try {
-      await navigator.clipboard.writeText(code);
-      const original = button.innerHTML;
-      button.innerHTML = `${icon('Check', { size: 14 })} Copied`;
-      window.setTimeout(() => {
-        button.innerHTML = original;
-      }, 2000);
-    } catch (error) {
-      // Clipboard access can be denied, so point the learner at manual copy.
-      console.warn('Kodingu: clipboard copy failed.', error);
-      toast('Copy failed. Select the code and copy it.');
-    }
-  });
+  wireCopyCode(document.querySelector('#lesson-main'));
 }
 
 function renderNotFound() {
@@ -609,6 +465,11 @@ function renderNotFound() {
 initChrome();
 if (found) {
   setPageTitle(found.lesson.title);
+  setSocialMeta({
+    title: found.lesson.title,
+    description: found.lesson.objective,
+    path: `/lesson?course=${encodeURIComponent(found.course.id)}&lesson=${encodeURIComponent(found.lesson.id)}`
+  });
   recordActivity('visit', found.lesson.id);
   renderSidebar();
   renderMain();
