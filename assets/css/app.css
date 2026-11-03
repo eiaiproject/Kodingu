@@ -1,8 +1,11 @@
 /* Header */
-.site-header {
+#site-header {
   position: sticky;
   top: 0;
   z-index: 50;
+}
+
+.site-header {
   background: var(--paper);
   border-bottom: 1px solid var(--line);
 }
@@ -604,15 +607,15 @@
 
 /* Footer */
 .site-footer {
-  padding-block: 2.5rem;
+  padding-block: clamp(2rem, 4vw, 3rem);
   border-top: 1px solid var(--line);
   background: var(--paper);
 }
 
 .footer-inner {
   display: grid;
-  grid-template-columns: 1.4fr 0.6fr 1fr;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1.3fr) minmax(8rem, 0.8fr) minmax(0, 1fr);
+  gap: clamp(1.5rem, 3vw, 2.5rem);
   align-items: start;
 }
 
@@ -624,9 +627,10 @@
 }
 
 .footer-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: 0.5rem 1.5rem;
+  align-content: start;
 }
 
 .footer-nav a {
@@ -1622,11 +1626,16 @@
 }
 
 .stat {
-  padding: 1.25rem 1.25rem 1.25rem 0;
+  padding: 1.25rem clamp(1rem, 2vw, 1.5rem);
   border-right: 1px solid var(--line);
 }
 
+.stat:first-child {
+  padding-left: 0;
+}
+
 .stat:last-child {
+  padding-right: 0;
   border-right: 0;
 }
 
@@ -1777,11 +1786,20 @@
 
 .mission-item {
   display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr) 10rem auto;
+  grid-template-columns: 1.75rem minmax(0, 1fr) 10rem 8rem;
   gap: 1rem;
   align-items: center;
   padding: 1rem 0;
   border-bottom: 1px solid var(--line);
+}
+
+.mission-item > .button,
+.mission-item > .mission-claimed {
+  justify-self: end;
+}
+
+.mission-item > .button {
+  width: 100%;
 }
 
 .mission-icon {
@@ -1965,7 +1983,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 2.5rem;
+  margin-block: clamp(2rem, 4vw, 3rem);
   padding: 1rem 1.1rem;
   border: 1px solid var(--line);
 }
@@ -2800,12 +2818,17 @@
   }
 
   .stat {
+    padding: 1.25rem 1rem;
     border-bottom: 1px solid var(--line);
   }
 
   .stat:nth-child(2n) {
-    padding-left: 1.25rem;
+    padding-right: 0;
     border-right: 0;
+  }
+
+  .stat:nth-child(2n + 1) {
+    padding-left: 0;
   }
 
   .stat:nth-child(n + 3) {
@@ -2877,8 +2900,13 @@
     grid-column: 2;
   }
 
-  .mission-item > .button {
+  .mission-item > .button,
+  .mission-item > .mission-claimed {
     justify-self: start;
+  }
+
+  .mission-item > .button {
+    width: auto;
   }
 
   .certificate-list,
