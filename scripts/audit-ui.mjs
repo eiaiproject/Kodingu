@@ -341,8 +341,8 @@ await runSeries([390, 320], async (width) => {
       'kodingu.progress.v1',
       JSON.stringify({
         version: 1,
-        xp: 1960,
-        tokens: 660,
+        xp: 2310,
+        tokens: 800,
         streak: 5,
         streakFreezes: 2,
         lastLessonDay: new Date().toISOString().slice(0, 10),

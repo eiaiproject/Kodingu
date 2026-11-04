@@ -1,5 +1,5 @@
-import { getAllLessons, getLesson, getNextLesson, getPreviousLesson } from './data.js';
-import { TOKENS_PER_LESSON } from './gamification.js';
+import { getAllLessons, getLesson, getNextLesson, getPreviousLesson } from '../data/data.js';
+import { TOKENS_PER_LESSON } from '../core/gamification.js';
 import {
   completeLesson,
   escapeHtml,
@@ -13,9 +13,10 @@ import {
   recordQuiz,
   setPageTitle,
   setSocialMeta,
-  toast
-} from './app.js';
-import { mountWorkspace, wireCopyCode, wireToggle } from './workspace.js';
+  toast,
+  wireSidebar
+} from '../core/app.js';
+import { mountWorkspace, wireCopyCode, wireToggle } from '../editor/workspace.js';
 
 const params = new URLSearchParams(window.location.search);
 const found = getLesson(params.get('course'), params.get('lesson'));
@@ -97,13 +98,7 @@ function renderSidebar() {
     </nav>
   `;
 
-  const toggle = mount.querySelector('#sidebar-toggle');
-  const list = mount.querySelector('#sidebar-lessons');
-  toggle?.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') === 'true';
-    toggle.setAttribute('aria-expanded', String(!open));
-    if (list) list.dataset.open = String(!open);
-  });
+  wireSidebar(mount);
 }
 
 function completedPanelMarkup() {
@@ -357,6 +352,7 @@ function wireLesson(lesson, quizDone) {
     draftKey: `kodingu.draft.${lesson.id}`,
     beforeCheck: () => recordActivity('check', lesson.id),
     onCheck: updateFinishState,
+    onEdit: updateFinishState,
     onReset: updateFinishState
   });
 

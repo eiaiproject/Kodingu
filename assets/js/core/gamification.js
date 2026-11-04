@@ -23,15 +23,19 @@ export function weekStartKey(now = new Date()) {
   return dateKey(date);
 }
 
-export function getWeeklyXp(history = [], now = new Date()) {
+export function getWeeklyXp(progress = {}, now = new Date()) {
   const start = weekStartKey(now);
-  return history
-    .filter((entry) => ['lesson', 'challenge', 'project'].includes(entry.type) && entry.at)
+  return [
+    ...Object.values(progress.completed || {}),
+    ...Object.values(progress.completedChallenges || {}),
+    ...Object.values(progress.completedProjects || {})
+  ]
+    .filter((entry) => entry.at)
     .filter((entry) => {
       const date = new Date(entry.at);
       return !Number.isNaN(date.getTime()) && dateKey(date) >= start;
     })
-    .reduce((sum, entry) => sum + (entry.xp || 0), 0);
+    .reduce((sum, entry) => sum + (Number(entry.xp) || 0), 0);
 }
 
 export function getLeague(xp = 0) {
@@ -97,8 +101,8 @@ export function getDailyMissions(hasUnfinishedLessons = true) {
 export function getMissionProgress(progress, mission, now = new Date()) {
   const today = dateKey(now);
   if (mission.metric === 'lesson') {
-    return (progress.history || []).filter((entry) => {
-      if (entry.type !== 'lesson' || !entry.at) return false;
+    return Object.values(progress.completed || {}).filter((entry) => {
+      if (!entry.at) return false;
       const date = new Date(entry.at);
       return !Number.isNaN(date.getTime()) && dateKey(date) === today;
     }).length;

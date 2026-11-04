@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
-import { courses, getAllLessons } from '../assets/js/data.js';
-import { projects } from '../assets/js/data-projects.js';
-import { extraChallenges } from '../assets/js/data-challenges.js';
+import { courses, getAllLessons } from '../assets/js/data/data.js';
+import { projects } from '../assets/js/data/data-projects.js';
+import { extraChallenges } from '../assets/js/data/data-challenges.js';
 
 const ORIGIN = 'https://kodingu.pages.dev';
 

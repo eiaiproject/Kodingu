@@ -1,4 +1,4 @@
-import { buildPreviewDocument, icon, toast } from './app.js';
+import { buildPreviewDocument, icon, toast } from '../core/app.js';
 import { runJavaScriptLesson } from './js-runner.js';
 
 export function renderScriptError(mount, error) {
@@ -100,11 +100,15 @@ export function mountWorkspace(options) {
     onBuild,
     beforeCheck,
     onCheck,
+    onEdit,
     onReset,
     resetMessage = 'Editor reset to the starter.'
   } = options;
 
   const state = { testsPassed: false };
+  let lastCheckedValue = null;
+  let checkSequence = 0;
+  let saveTimer;
   const { runPreview } = createPreviewRunner({
     editor,
     frame,
@@ -132,9 +136,14 @@ export function mountWorkspace(options) {
 
   const checkCode = async () => {
     if (!editor) return [];
+    const value = editor.value;
+    const request = ++checkSequence;
     beforeCheck?.();
-    const { error, results } = await runChecks({ language, preview, tests, raw: editor.value });
+    const { error, results } = await runChecks({ language, preview, tests, raw: value });
+    // A result is stale if the editor changed or a newer check started.
+    if (request !== checkSequence || editor.value !== value) return results;
     renderScriptError(errorMount, error);
+    lastCheckedValue = value;
     state.testsPassed = results.length > 0 && results.every(Boolean);
     renderChecks(results);
     void runPreview();
@@ -145,8 +154,12 @@ export function mountWorkspace(options) {
 
   const reset = () => {
     if (!editor) return;
+    // Cancel any check that started before the reset.
+    checkSequence += 1;
+    window.clearTimeout(saveTimer);
     editor.value = starter;
     clearDraft();
+    lastCheckedValue = null;
     state.testsPassed = false;
     resetChecks();
     renderScriptError(errorMount, null);
@@ -156,8 +169,13 @@ export function mountWorkspace(options) {
     editor.focus();
   };
 
-  let saveTimer;
   editor?.addEventListener('input', () => {
+    if (lastCheckedValue !== null && editor.value !== lastCheckedValue) {
+      lastCheckedValue = null;
+      state.testsPassed = false;
+      resetChecks();
+      onEdit?.();
+    }
     renderScriptError(errorMount, null);
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(saveDraft, 400);
@@ -191,17 +209,23 @@ export function wireToggle(buttonSelector, panelSelector, showLabel, hideLabel, 
 }
 
 export function wireCopyCode(root) {
+  const timers = new WeakMap();
   root?.addEventListener('click', async (event) => {
     const button = event.target.closest('.copy-code');
     if (!button) return;
     const code = button.closest('.code-block')?.querySelector('code')?.textContent || '';
     try {
       await navigator.clipboard.writeText(code);
-      const original = button.innerHTML;
+      const original = button.dataset.copyOriginal || button.innerHTML;
+      button.dataset.copyOriginal = original;
       button.innerHTML = `${icon('Check', { size: 14 })} Copied`;
-      window.setTimeout(() => {
+      window.clearTimeout(timers.get(button));
+      const timer = window.setTimeout(() => {
         button.innerHTML = original;
+        delete button.dataset.copyOriginal;
+        timers.delete(button);
       }, 2000);
+      timers.set(button, timer);
     } catch (error) {
       // Clipboard access can be denied, so point the learner at manual copy.
       console.warn('Kodingu: clipboard copy failed.', error);

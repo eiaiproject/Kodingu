@@ -1,4 +1,4 @@
-import { getCourse, getAllLessons } from './data.js';
+import { getCourse, getAllLessons } from '../data/course-index.js';
 import {
   escapeHtml,
   formatFullDate,
@@ -10,7 +10,7 @@ import {
   progressBar,
   setPageTitle,
   setSocialMeta
-} from './app.js';
+} from '../core/app.js';
 
 const NAME_KEY = 'kodingu.certificate.name';
 const params = new URLSearchParams(window.location.search);

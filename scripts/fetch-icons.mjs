@@ -92,5 +92,5 @@ const output = [
   ''
 ].join('\n');
 
-await writeFile(new URL('../assets/js/icons.js', import.meta.url), output);
-console.log(`Wrote ${names.length} icons to assets/js/icons.js`);
+await writeFile(new URL('../assets/js/core/icons.js', import.meta.url), output);
+console.log(`Wrote ${names.length} icons to assets/js/core/icons.js`);

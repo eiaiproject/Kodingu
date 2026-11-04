@@ -1,11 +1,11 @@
-import { extraChallenges } from './data-challenges.js';
+import { extraChallenges } from '../data/data-challenges.js';
 import {
   escapeHtml,
   getProgress,
   icon,
   initChrome,
   setPageTitle
-} from './app.js';
+} from '../core/app.js';
 
 const groups = [
   { id: 'html', label: 'HTML', note: 'Structure and accessible markup.' },

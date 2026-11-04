@@ -1,5 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-import { ICONS } from '../assets/js/icons.js';
+import { ICONS } from '../assets/js/core/icons.js';
 
 const path = ICONS.Code.O;
 if (!path) {

@@ -1,4 +1,4 @@
-import { projects } from './data-projects.js';
+import { projects } from '../data/data-projects.js';
 import {
   escapeHtml,
   getProgress,
@@ -7,7 +7,7 @@ import {
   initChrome,
   progressBar,
   setPageTitle
-} from './app.js';
+} from '../core/app.js';
 
 function projectState(project, progress) {
   const complete = Boolean(progress.completedProjects[project.id]);

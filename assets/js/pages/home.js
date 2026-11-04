@@ -1,4 +1,4 @@
-import { courses } from './data.js';
+import { courses } from '../data/course-index.js';
 import {
   buildPreviewDocument,
   escapeHtml,
@@ -6,7 +6,7 @@ import {
   initChrome,
   pluralize,
   statusLabel
-} from './app.js';
+} from '../core/app.js';
 
 function renderCourses() {
   const list = document.querySelector('#home-courses');

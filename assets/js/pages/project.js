@@ -1,4 +1,4 @@
-import { getProject, projects } from './data-projects.js';
+import { getProject, projects } from '../data/data-projects.js';
 import {
   buildProjectPreview,
   completeProject,
@@ -9,12 +9,14 @@ import {
   icon,
   initChrome,
   progressBar,
+  renderMissingPage,
   setPageTitle,
   setSocialMeta,
   toggleProjectRequirement,
-  toast
-} from './app.js';
-import { mountWorkspace } from './workspace.js';
+  toast,
+  wireSidebar
+} from '../core/app.js';
+import { mountWorkspace } from '../editor/workspace.js';
 
 const project = getProject(new URLSearchParams(window.location.search).get('project'));
 const main = document.querySelector('#project-main');
@@ -69,33 +71,20 @@ function renderSidebar() {
     </nav>
   `;
 
-  const toggle = sidebar.querySelector('#sidebar-toggle');
-  const list = sidebar.querySelector('#sidebar-lessons');
-  toggle?.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') === 'true';
-    toggle.setAttribute('aria-expanded', String(!open));
-    if (list) list.dataset.open = String(!open);
-  });
+  wireSidebar(sidebar);
 }
 
 function renderNotFound() {
-  setPageTitle('Project not found');
-  if (sidebar) sidebar.innerHTML = '';
-  if (!main) return;
-  main.innerHTML = `
-    <div class="page-head">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <a href="catalog.html">Catalog</a>
-        <span class="sep" aria-hidden="true">/</span>
-        <a href="projects.html">Projects</a>
-      </nav>
-      <h1>Project not found</h1>
-      <p class="lede">This project address does not match a project in the library.</p>
-      <div class="hero-actions">
-        <a class="button button-primary" href="projects.html">Open the project library</a>
-      </div>
-    </div>
-  `;
+  renderMissingPage({
+    mount: main,
+    sidebar,
+    title: 'Project not found',
+    message: 'This project address does not match a project in the library.',
+    actionHref: 'projects.html',
+    actionLabel: 'Open the project library',
+    parentHref: 'projects.html',
+    parentLabel: 'Projects'
+  });
 }
 
 function completedPanelMarkup(progress) {
