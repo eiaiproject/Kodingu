@@ -1,4 +1,4 @@
-import { courses } from './data.js';
+import { courses } from '../data/course-index.js';
 import {
   escapeHtml,
   getCourseStats,
@@ -7,7 +7,7 @@ import {
   progressBar,
   setPageTitle,
   statusLabel
-} from './app.js';
+} from '../core/app.js';
 
 function lessonCount(course) {
   return course.modules.reduce((total, module) => total + module.lessons.length, 0);

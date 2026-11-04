@@ -2,9 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { startServer } from './dev-server.mjs';
 import { runSeries } from './series.mjs';
-import { courses, getAllLessons } from '../assets/js/data.js';
-import { projects } from '../assets/js/data-projects.js';
-import { extraChallenges } from '../assets/js/data-challenges.js';
+import { courses, getAllLessons } from '../assets/js/data/data.js';
+import { courses as indexCourses } from '../assets/js/data/course-index.js';
+import { projects } from '../assets/js/data/data-projects.js';
+import { extraChallenges } from '../assets/js/data/data-challenges.js';
 
 const filters = process.argv
   .slice(2)
@@ -51,10 +52,41 @@ const everything = [
 ];
 
 const EXPECTED_TOTALS = {
-  html: { lessons: 26, xp: 665 },
-  css: { lessons: 15, xp: 390 },
-  js: { lessons: 11, xp: 290 }
+  html: { lessons: 32, xp: 815 },
+  css: { lessons: 19, xp: 490 },
+  js: { lessons: 15, xp: 390 }
 };
+
+function courseIndexShape(list) {
+  return list.map((course) => ({
+    id: course.id,
+    title: course.title,
+    subtitle: course.subtitle,
+    description: course.description,
+    status: course.status,
+    level: course.level,
+    language: course.language || null,
+    modules: course.modules.map((module) => ({
+      id: module.id,
+      title: module.title,
+      description: module.description,
+      lessons: module.lessons.map((lesson) => ({
+        id: lesson.id,
+        title: lesson.title,
+        minutes: lesson.minutes,
+        xp: lesson.xp,
+        language: lesson.language || null
+      }))
+    }))
+  }));
+}
+
+function checkCourseIndex() {
+  assert(
+    JSON.stringify(courseIndexShape(courses)) === JSON.stringify(courseIndexShape(indexCourses)),
+    'course index matches the full lesson data'
+  );
+}
 
 function checkCatalog() {
   console.log('\nData integrity');
@@ -66,7 +98,7 @@ function checkCatalog() {
     seen.add(item.id);
   }
   assert(!duplicates.length, 'IDs are unique across lessons, projects, and challenges', duplicates.join(', '));
-  assert(lessons.length === 52, `52 lessons in the catalog (found ${lessons.length})`);
+  assert(lessons.length === 66, `66 lessons in the catalog (found ${lessons.length})`);
   assert(projects.length === 4, `4 guided projects (found ${projects.length})`);
   assert(extraChallenges.length === 6, `6 extra challenges (found ${extraChallenges.length})`);
 
@@ -82,7 +114,7 @@ function checkCatalog() {
       expected ? `expected ${expected.lessons} and ${expected.xp}` : 'no expected total'
     );
   }
-  assert(lessonXp === 1345, `lesson XP totals 1345 (found ${lessonXp})`);
+  assert(lessonXp === 1695, `lesson XP totals 1695 (found ${lessonXp})`);
 
   const projectXp = projects.reduce((sum, project) => sum + project.xp, 0);
   const challengeXp = extraChallenges.reduce((sum, challenge) => sum + challenge.xp, 0);
@@ -133,9 +165,9 @@ function checkLessonContent() {
     assert(!problems.length, `${lesson.id} is complete`, problems.join(', '));
     tests += (challenge.tests || []).length;
   }
-  assert(tests === 255, `255 automated checks in lesson content (found ${tests})`);
+  assert(tests === 318, `318 automated checks in lesson content (found ${tests})`);
   const challengeTests = extraChallenges.reduce((sum, challenge) => sum + challenge.tests.length, 0);
-  assert(tests + challengeTests === 289, `289 checks across lessons and challenges (found ${tests + challengeTests})`);
+  assert(tests + challengeTests === 352, `352 checks across lessons and challenges (found ${tests + challengeTests})`);
 }
 
 function checkProjects() {
@@ -170,6 +202,7 @@ function checkChallenges() {
 }
 
 function checkData() {
+  checkCourseIndex();
   checkCatalog();
   checkLessonContent();
   checkProjects();
@@ -216,6 +249,21 @@ async function runLesson(page, base, course, lesson) {
   );
   const expected = `All ${lesson.challenge.tests.length} passed`;
   assert(summary === expected, `${lesson.id}: solution passes every check`, failedLabels.join(' | '));
+
+  if (lesson.id === 'html-01') {
+    await setEditor(page, '#editor-code', '<!DOCTYPE html><html lang="en"><body><h1>Changed</h1></body></html>');
+    const resetSummary = await page.$eval('#checks-summary', (node) => node.textContent.trim());
+    const finishDisabled = await page.$eval('#finish-lesson', (button) => button.disabled);
+    assert(
+      resetSummary === 'Not run' && finishDisabled,
+      `${lesson.id}: editing after a pass clears the checks and disables finish`,
+      `summary "${resetSummary}", disabled ${finishDisabled}`
+    );
+    await setEditor(page, '#editor-code', lesson.challenge.solution);
+    await page.click('#check-code');
+    const restored = await page.evaluate(waitForSummary);
+    assert(restored === expected, `${lesson.id}: the solution passes again after an edit`, restored);
+  }
 
   await page.check(`input[name="quiz"][value="${lesson.quiz.answer}"]`);
   await page.click('#quiz-check');
@@ -266,7 +314,7 @@ async function runProject(page, base, project) {
 async function runUnitChecks(page, base) {
   await openPage(page, base, '/index.html');
   const streak = await page.evaluate(async () => {
-    const app = await import(new URL('/assets/js/app.js', window.location.origin).href);
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const keyFor = (offset) => {
       const date = new Date();
       date.setDate(date.getDate() - offset);
@@ -288,7 +336,7 @@ async function runUnitChecks(page, base) {
   assert(streak.stale.streak === 0, 'streak: a three day gap ends the streak even with a freeze');
 
   const projectChecks = await page.evaluate(async () => {
-    const app = await import(new URL('/assets/js/app.js', window.location.origin).href);
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const project = { id: 'unit-project', requirements: ['Alpha', 'Beta', 'Gamma'] };
     localStorage.setItem('kodingu.progress.v1', JSON.stringify({ projectChecks: { 'unit-project': [0, 2] } }));
     const migrated = app.getProjectChecks(project);
@@ -317,6 +365,90 @@ async function runUnitChecks(page, base) {
     'project checks: a new tick is stored by text',
     projectChecks.saved.join(',')
   );
+
+  const metrics = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    const gamification = await import(new URL('/assets/js/core/gamification.js', window.location.origin).href);
+    const at = new Date().toISOString();
+    const progress = {
+      completed: { 'unit-a': { at, xp: '25' } },
+      completedChallenges: { 'unit-b': { at, xp: 30 } },
+      completedProjects: { 'unit-c': { at, xp: 80 } },
+      history: []
+    };
+    return {
+      weekly: gamification.getWeeklyXp(progress),
+      today: app.getTodayCount(progress),
+      mission: gamification.getMissionProgress(progress, { metric: 'lesson' })
+    };
+  });
+  assert(metrics.weekly === 135, `progress: weekly XP reads completion maps (found ${metrics.weekly})`);
+  assert(metrics.today === 1, `progress: today count reads completion dates (found ${metrics.today})`);
+  assert(metrics.mission === 1, `progress: lesson missions read completion dates (found ${metrics.mission})`);
+
+  const normalized = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    localStorage.setItem('kodingu.progress.v1', JSON.stringify({ xp: '100', streak: '2', tokens: '5', completed: {} }));
+    const progress = app.getProgress();
+    localStorage.removeItem('kodingu.progress.v1');
+    return { xp: progress.xp, streak: progress.streak, tokens: progress.tokens };
+  });
+  assert(
+    normalized.xp === 100 && normalized.streak === 2 && normalized.tokens === 5,
+    'progress: stored numeric strings are normalized',
+    JSON.stringify(normalized)
+  );
+
+  await page.evaluate(() => {
+    localStorage.setItem('kodingu.progress.v1', JSON.stringify({ xp: 100, streak: 0, tokens: 0 }));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-stat="tokens"]', { timeout: 5000 });
+  const tokenStat = await page.$eval('[data-stat="tokens"] span', (node) => node.textContent.trim());
+  assert(tokenStat === '0', `header: the token stat stays visible at zero (found "${tokenStat}")`);
+
+  const legacyTokens = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    const at = new Date().toISOString();
+    localStorage.setItem(
+      'kodingu.progress.v1',
+      JSON.stringify({
+        completed: { 'legacy-lesson': { at } },
+        completedChallenges: { 'legacy-challenge': { at } },
+        completedProjects: { 'legacy-project': { at } }
+      })
+    );
+    const tokens = app.getProgress().tokens;
+    localStorage.removeItem('kodingu.progress.v1');
+    return tokens;
+  });
+  assert(
+    legacyTokens === 40,
+    `progress: legacy token fallback counts all completion maps (found ${legacyTokens})`
+  );
+
+  const storageFallback = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    const originalSetItem = Storage.prototype.setItem;
+    let threw = false;
+    Storage.prototype.setItem = () => {
+      throw new DOMException('QuotaExceededError');
+    };
+    try {
+      app.saveProgress({ ...app.getProgress(), xp: 99 });
+    } catch (error) {
+      threw = true;
+    } finally {
+      Storage.prototype.setItem = originalSetItem;
+    }
+    localStorage.removeItem('kodingu.progress.v1');
+    return { threw, xp: app.getProgress().xp };
+  });
+  assert(
+    !storageFallback.threw && storageFallback.xp === 99,
+    `progress: a failed storage write keeps progress in memory (found ${JSON.stringify(storageFallback)})`
+  );
+  await page.evaluate(() => localStorage.removeItem('kodingu.progress.v1'));
 }
 
 async function checkPages(page, base) {
@@ -354,6 +486,15 @@ async function checkPages(page, base) {
 
   const heroWidth = await page.$eval('h1', (node) => node.getBoundingClientRect().width);
   assert(heroWidth > 200, 'home headline has a real layout box', `${Math.round(heroWidth)}px`);
+
+  await openPage(page, base, '/lesson.html?course=html&lesson=html-01');
+  await page.waitForSelector('#editor-code', { timeout: 15000 });
+  const canonical = await page.$eval('link[rel="canonical"]', (node) => node.href);
+  assert(
+    canonical === 'https://kodingu.pages.dev/lesson?course=html&lesson=html-01',
+    'canonical: runtime metadata keeps the production origin',
+    canonical
+  );
 }
 
 async function checkProgressTotals(page, base) {
@@ -363,9 +504,9 @@ async function checkProgressTotals(page, base) {
     nodes.map((node) => Number(node.textContent.trim()))
   );
   const [xp, streak, completedLessons, tokens] = values;
-  assert(xp === 1960, `progress: 1960 XP after all lessons, challenges, and projects (found ${xp})`);
-  assert(completedLessons === 52, `progress: 52 lessons complete (found ${completedLessons})`);
-  assert(tokens === 660, `progress: 660 tokens earned (found ${tokens})`);
+  assert(xp === 2310, `progress: 2310 XP after all lessons, challenges, and projects (found ${xp})`);
+  assert(completedLessons === 66, `progress: 66 lessons complete (found ${completedLessons})`);
+  assert(tokens === 800, `progress: 800 tokens earned (found ${tokens})`);
   assert(streak === 1, `progress: one day streak (found ${streak})`);
 
   const ready = await page.$$eval('.certificate-card.is-ready', (nodes) => nodes.length);
@@ -457,7 +598,7 @@ async function checkSeo(base) {
 
   const sitemap = await (await fetch(`${base}/sitemap.xml`)).text();
   const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-  assert(locations.length === 70, `sitemap lists 70 URLs (found ${locations.length})`);
+  assert(locations.length === 84, `sitemap lists 84 URLs (found ${locations.length})`);
 
   const robots = await (await fetch(`${base}/robots.txt`)).text();
   assert(robots.includes('sitemap.xml'), 'robots.txt points at the sitemap');

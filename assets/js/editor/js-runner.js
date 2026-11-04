@@ -17,7 +17,7 @@ function runnerDocument(source, preview, requestId, tests) {
   }).replaceAll('<', String.raw`\u003c`);
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body data-kodingu-runner-id="${requestId}">${preview}
 <script data-kodingu-runner type="application/json" id="kodingu-runner-source">${encodedPayload}</script>
-<script data-kodingu-runner src="/assets/js/runner-frame.js"></script>
+<script data-kodingu-runner src="/assets/js/editor/runner-frame.js"></script>
 </body></html>`;
 }
 

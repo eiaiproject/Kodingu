@@ -1,4 +1,4 @@
-const CACHE = 'kodingu-v3';
+const CACHE = 'kodingu-v6';
 
 const SHELL = [
   'index.html',
@@ -15,36 +15,40 @@ const SHELL = [
   'favicon.svg',
   'assets/css/base.css',
   'assets/css/app.css',
-  'assets/js/app.js',
-  'assets/js/catalog.js',
-  'assets/js/certificate.js',
-  'assets/js/challenge.js',
-  'assets/js/course.js',
-  'assets/js/data.js',
-  'assets/js/data-challenges.js',
-  'assets/js/data-css-layout.js',
-  'assets/js/data-css-modern.js',
-  'assets/js/data-css.js',
-  'assets/js/data-helpers.js',
-  'assets/js/data-html-2.js',
-  'assets/js/lesson-builder.js',
-  'assets/js/data-html-3.js',
-  'assets/js/data-js-data.js',
-  'assets/js/data-js.js',
-  'assets/js/data-projects.js',
-  'assets/js/gamification.js',
-  'assets/js/home.js',
-  'assets/js/icons.js',
-  'assets/js/js-runner.js',
-  'assets/js/lesson.js',
-  'assets/js/not-found.js',
-  'assets/js/practice.js',
-  'assets/js/progress.js',
-  'assets/js/project.js',
-  'assets/js/projects.js',
-  'assets/js/runner-frame.js',
-  'assets/js/theme-init.js',
-  'assets/js/workspace.js'
+  'assets/js/core/app.js',
+  'assets/js/pages/catalog.js',
+  'assets/js/pages/certificate.js',
+  'assets/js/pages/challenge.js',
+  'assets/js/pages/course.js',
+  'assets/js/data/course-index.js',
+  'assets/js/data/data.js',
+  'assets/js/data/data-challenges.js',
+  'assets/js/data/data-css-layout.js',
+  'assets/js/data/data-css-modern.js',
+  'assets/js/data/data-css.js',
+  'assets/js/data/data-css-components.js',
+  'assets/js/data/data-helpers.js',
+  'assets/js/data/data-html-2.js',
+  'assets/js/data/lesson-builder.js',
+  'assets/js/data/data-html-3.js',
+  'assets/js/data/data-html-4.js',
+  'assets/js/data/data-js-data.js',
+  'assets/js/data/data-js.js',
+  'assets/js/data/data-js-modern.js',
+  'assets/js/data/data-projects.js',
+  'assets/js/core/gamification.js',
+  'assets/js/pages/home.js',
+  'assets/js/core/icons.js',
+  'assets/js/editor/js-runner.js',
+  'assets/js/pages/lesson.js',
+  'assets/js/pages/not-found.js',
+  'assets/js/pages/practice.js',
+  'assets/js/pages/progress.js',
+  'assets/js/pages/project.js',
+  'assets/js/pages/projects.js',
+  'assets/js/editor/runner-frame.js',
+  'assets/js/core/theme-init.js',
+  'assets/js/editor/workspace.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -85,6 +89,19 @@ async function networkFirst(request) {
   }
 }
 
+async function networkFirstAsset(request) {
+  const cache = await caches.open(CACHE);
+  try {
+    const response = await fetch(request);
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    throw error;
+  }
+}
+
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE);
   const cached = await cache.match(request);
@@ -99,5 +116,12 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  event.respondWith(request.mode === 'navigate' ? networkFirst(request) : cacheFirst(request));
+  const holdsCode = /\.(?:js|css)$/.test(url.pathname);
+  event.respondWith(
+    request.mode === 'navigate'
+      ? networkFirst(request)
+      : holdsCode
+        ? networkFirstAsset(request)
+        : cacheFirst(request)
+  );
 });

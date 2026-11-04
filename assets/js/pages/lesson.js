@@ -1,5 +1,5 @@
-import { getAllLessons, getLesson, getNextLesson, getPreviousLesson } from './data.js';
-import { TOKENS_PER_LESSON } from './gamification.js';
+import { getAllLessons, getLesson, getNextLesson, getPreviousLesson } from '../data/data.js';
+import { TOKENS_PER_LESSON } from '../core/gamification.js';
 import {
   completeLesson,
   escapeHtml,
@@ -14,8 +14,8 @@ import {
   setPageTitle,
   setSocialMeta,
   toast
-} from './app.js';
-import { mountWorkspace, wireCopyCode, wireToggle } from './workspace.js';
+} from '../core/app.js';
+import { mountWorkspace, wireCopyCode, wireToggle } from '../editor/workspace.js';
 
 const params = new URLSearchParams(window.location.search);
 const found = getLesson(params.get('course'), params.get('lesson'));
@@ -357,6 +357,7 @@ function wireLesson(lesson, quizDone) {
     draftKey: `kodingu.draft.${lesson.id}`,
     beforeCheck: () => recordActivity('check', lesson.id),
     onCheck: updateFinishState,
+    onEdit: updateFinishState,
     onReset: updateFinishState
   });
 

@@ -9,8 +9,8 @@ There is no account, backend, or AI tutor. Progress, drafts, and preferences sta
 ## Contents
 
 - **3 open courses:** HTML, CSS, and JavaScript.
-- **52 lessons:** 26 HTML, 15 CSS, and 11 JavaScript.
-- **1,345 lesson XP:** 665 HTML, 390 CSS, and 290 JavaScript.
+- **66 lessons:** 32 HTML, 19 CSS, and 15 JavaScript.
+- **1,695 lesson XP:** 815 HTML, 490 CSS, and 390 JavaScript.
 - **4 guided projects:** a recipe page, a reading room, a field notes counter, and a small studio page.
 - **6 extra challenges:** two HTML, two CSS, and two JavaScript.
 - **615 practice XP:** 430 from guided projects and 185 from extra challenges.
@@ -27,9 +27,9 @@ Plain HTML, CSS, and JavaScript with ES modules. No framework, build step, or ru
 
 | Course | Modules | Lessons | Lesson XP | What it covers |
 | --- | ---: | ---: | ---: | --- |
-| HTML | 6 | 26 | 665 | Document structure, headings, paragraphs, links, lists, images, quotations, code, figures, semantic sections, forms, tables, ids, classes, comments, metadata and search, Open Graph, JSON-LD, responsive images, video and captions, landmarks, and a capstone page. |
-| CSS | 3 | 15 | 390 | Rules, selectors, the cascade, color and contrast, typography, the box model, flexbox, grid, responsive layout, custom properties, positioning, and reduced-motion transitions. |
-| JavaScript | 3 | 11 | 290 | Values, variables, functions, conditions, loops, DOM updates, events, objects, array methods, error handling, and a small interactive page. |
+| HTML | 8 | 32 | 815 | Document structure, headings, paragraphs, links, lists, images, quotations, code, figures, semantic sections, forms and native validation, tables, ids, classes, comments, metadata and search, Open Graph, JSON-LD, responsive images, video and captions, landmarks, iframes, canvas, SVG, characters and file paths, and a capstone page. |
+| CSS | 4 | 19 | 490 | Rules, selectors, the cascade, color and contrast, typography, the box model, flexbox, grid, responsive layout, custom properties, positioning, motion, borders and shadows, interaction states, box sizing, overflow, object-fit, and fluid type. |
+| JavaScript | 4 | 15 | 390 | Values, variables, functions, conditions, loops, DOM updates, events, objects, array methods, error handling, types and strict equality, closures, classes, JSON, async, and a small interactive page. |
 
 Every course lesson has a quiz and a code challenge. A lesson is complete when the quiz is correct and every challenge check passes.
 
@@ -104,6 +104,9 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 
 ```text
 .
+├── .editorconfig
+├── .gitignore
+├── README.md                  Project overview and development guide
 ├── index.html                 Landing page
 ├── catalog.html               Course catalog
 ├── course.html                Course detail
@@ -120,42 +123,34 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 ├── robots.txt                 Crawler rules and sitemap pointer
 ├── sitemap.xml                Generated list of public URLs
 ├── favicon.svg                Brand mark and favicon
-├── assets/og-image.png        Generated 1200x630 share image
-├── DESIGN.md                  Visual direction and design log
-├── AGENTS.md                  Notes for coding agents
 ├── assets/
+│   ├── og-image.png           Generated 1200x630 share image
 │   ├── css/
 │   │   ├── base.css           Tokens, reset, typography, utilities
 │   │   └── app.css            Components and page layouts
 │   └── js/
-│       ├── app.js             Shared chrome, storage, progress helpers
-│       ├── data.js            Course definitions and the first HTML module
-│       ├── data-html-2.js     HTML modules 2 to 4
-│       ├── data-html-3.js     HTML metadata, media, and landmarks
-│       ├── data-css.js        CSS foundations
-│       ├── data-css-layout.js CSS layout lessons
-│       ├── data-css-modern.js Custom properties, positioning, motion
-│       ├── data-js.js         JavaScript lessons
-│       ├── data-js-data.js    Objects, arrays, and errors
-│       ├── data-projects.js   Guided projects
-│       ├── data-challenges.js Extra challenges
-│       ├── data-helpers.js    Shared test helpers
-│       ├── gamification.js    Tokens, missions, league, freezes
-│       ├── js-runner.js       JavaScript test runner
-│       ├── runner-frame.js    Sandboxed runner frame
-│       ├── workspace.js       Shared editor, checks, drafts, and toggles
-│       ├── icons.js           Generated Reicon icons
-│       └── ...                Page scripts
+│       ├── core/              Shared chrome, storage, progress, gamification, icons
+│       ├── data/              Courses, projects, challenges, test helpers
+│       ├── editor/            Editor workspace and sandbox runner
+│       └── pages/             One controller per HTML page
 ├── scripts/
 │   ├── dev-server.mjs         Local server that applies _headers
 │   ├── verify.mjs             Data and browser verification harness
-│   ├── fetch-icons.mjs        Regenerate icons.js from Reicon
+│   ├── audit-ui.mjs           Layout, contrast, and focus audit
+│   ├── fetch-icons.mjs        Regenerate core/icons.js from Reicon
 │   ├── make-favicon.mjs       Regenerate favicon.svg
 │   ├── make-og-image.mjs      Regenerate the share image
-│   └── make-sitemap.mjs       Regenerate sitemap.xml from the course data
+│   ├── make-sitemap.mjs       Regenerate sitemap.xml from the course data
+│   ├── make-course-index.mjs  Regenerate data/course-index.js from lesson data
+│   └── series.mjs             Shared sequential task helper
+├── docs/audits/               Historical design audit notes
+├── DESIGN.md                  Visual direction and design log
+├── AGENTS.md                  Notes for coding agents
 ├── package.json               Dev tooling only; the site ships no dependencies
-└── anti-slop/                 Design audit notes
+└── package-lock.json          Locked tooling versions
 ```
+
+The audit notes under `docs/audits/` are historical. Paths inside them describe the repository at the time of each audit.
 
 ## Run locally
 
@@ -180,7 +175,7 @@ npx playwright install chromium
 npm run verify
 ```
 
-The harness starts the dev server, checks the content data (unique IDs, XP totals, quiz answers, check functions, previews), then drives Chromium through every lesson, challenge, and project. It writes each documented solution into the editor, runs the checks, answers the quiz, finishes the work, and asserts the totals on the progress page. It also checks the CSP headers, the extensionless URLs, the offline worker, and the home demo.
+The harness starts the dev server, checks the content data (unique IDs, XP totals, quiz answers, check functions, previews) and the generated course index, then drives Chromium through every lesson, challenge, and project. It writes each documented solution into the editor, runs the checks, answers the quiz, finishes the work, and asserts the totals on the progress page. It also checks the CSP headers, the extensionless URLs, the offline worker, and the home demo.
 
 `node scripts/verify.mjs --only=data` runs a single group. Groups: `data`, `headers`, `seo`, `unit`, `lessons`, `challenges`, `projects`, `pages`, `totals`, `offline`.
 
@@ -188,7 +183,7 @@ Chromium needs system libraries. If it cannot start, run `npx playwright install
 
 ## Search and sharing
 
-Every page carries a description, a canonical URL, Open Graph and Twitter tags, and a robots rule. The home page and catalog also carry JSON-LD (WebSite and an ItemList of Course). Course, lesson, project, challenge, and certificate pages rewrite the canonical URL, title, and description at runtime from the current address.
+Every page carries a description, a canonical URL, Open Graph and Twitter tags, and a robots rule. The home page and catalog also carry JSON-LD (WebSite and an ItemList of Course). Course, lesson, project, challenge, and certificate pages rewrite the canonical URL, title, and description at runtime from the page path and the canonical origin.
 
 - `assets/og-image.png` is the 1200x630 share image. Rebuild it with `npm run og-image`.
 - `sitemap.xml` lists every public course, lesson, project, and challenge. Rebuild it with `npm run sitemap` after adding content.
@@ -200,15 +195,6 @@ Lessons are rendered in the browser, so a crawler that does not run JavaScript s
 
 The live site is deployed on Cloudflare Pages at [https://kodingu.pages.dev/](https://kodingu.pages.dev/).
 
-To deploy the same static site:
-
-1. Connect the repository to Cloudflare Pages.
-2. Leave the build command empty. There is no build step.
-3. Use the repository root as the output directory.
-4. Deploy.
-
-`_headers` adds security headers, and `404.html` provides the custom not found page.
-
 ## Development workflow
 
 1. Clone the repository and start the local server.
@@ -217,20 +203,23 @@ To deploy the same static site:
 4. Commit and push the branch.
 5. Merge to `main`. A connected Cloudflare Pages project deploys `main` automatically.
 
-`npm run verify` is the only automated check. Build, lint, and formatting steps do not exist.
+`npm run verify` is the main automated check. `npm run audit` adds a browser layout, contrast, and focus pass. Build, lint, and formatting steps do not exist.
 
 ## Adding or editing content
 
-Course and lesson data live in `assets/js/data*.js`:
+Course and lesson data live in `assets/js/data/`:
 
 - `data.js`: course definitions and the first HTML module.
 - `data-html-2.js`: HTML modules 2 to 4.
 - `data-html-3.js`: HTML metadata, media, and landmarks.
+- `data-html-4.js`: form groups, validation, iframes, canvas, SVG, and characters with paths.
 - `data-css.js`: CSS foundations.
 - `data-css-layout.js`: CSS layout lessons.
 - `data-css-modern.js`: custom properties, positioning, and motion.
+- `data-css-components.js`: borders, shadows, states, sizing, and fluid type.
 - `data-js.js`: JavaScript lessons.
 - `data-js-data.js`: objects, array methods, and error handling.
+- `data-js-modern.js`: types, strict equality, closures, classes, JSON, and async.
 - `data-projects.js`: guided projects.
 - `data-challenges.js`: extra challenges.
 
@@ -240,9 +229,9 @@ A lesson has an `id`, title, estimated minutes, XP, objective, theory blocks, qu
 - CSS lessons receive the stylesheet in `raw` and `css`, plus a preview document.
 - JavaScript lessons run in a sandboxed runner frame.
 
-After editing content, start the local server and open the affected lesson or project. The browser is the test environment.
+After editing content, run `npm run course-index` so the catalog and progress pages see the new titles, minutes, and XP. Then start the local server and open the affected lesson or project. The browser is the test environment.
 
-To regenerate the icon set from Reicon, run `node scripts/fetch-icons.mjs`. To rebuild the favicon from the Code icon, run `node scripts/make-favicon.mjs`. Both scripts need Node 18 or newer.
+To regenerate the icon set from Reicon, run `npm run icons`. To rebuild the favicon from the Code icon, run `npm run favicon`. The scripts need Node 18 or newer.
 
 ## Local data
 
@@ -263,8 +252,13 @@ If the browser blocks local storage, progress stays in memory for the current pa
 
 The site uses semantic landmarks, a skip link, visible focus styles, keyboard-operable controls, 44px mobile targets for primary controls, WCAG AA contrast checks, light and dark themes, and reduced-motion support.
 
-## Credits
+## Credits and references
 
-- Icons: [Reicon](https://reicon.dev) (MIT).
+- Icons:
+[Reicon](https://reicon.dev) (MIT).
 - Fonts: Shippori Mincho, Public Sans, and IBM Plex Mono, loaded from Google Fonts.
 - Source: [eiaiproject/Kodingu](https://github.com/eiaiproject/Kodingu).
+- Syllabus reference(s):
+[MDN Web Docs](https://developer.mozilla.org/en-US/).
+[W3Schools](https://www.w3schools.com/).
+- Design and copy rules: [anti-slop](https://github.com/miqdadbadjuber/anti-slop).

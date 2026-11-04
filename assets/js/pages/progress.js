@@ -1,4 +1,4 @@
-import { courses, getAllLessons } from './data.js';
+import { courses, getAllLessons } from '../data/course-index.js';
 import {
   buyFreezeChest,
   claimDailyMission,
@@ -19,7 +19,7 @@ import {
   setPageTitle,
   storageAvailable,
   toast
-} from './app.js';
+} from '../core/app.js';
 import {
   CHEST_COST,
   FREEZE_LIMIT,
@@ -27,7 +27,7 @@ import {
   getLeague,
   getMissionProgress,
   getWeeklyXp
-} from './gamification.js';
+} from '../core/gamification.js';
 
 function renderStats() {
   const mount = document.querySelector('#stats');
@@ -74,7 +74,7 @@ function renderRewards() {
   const mount = document.querySelector('#rewards');
   if (!mount) return;
   const progress = getProgress();
-  const weeklyXp = getWeeklyXp(progress.history || []);
+  const weeklyXp = getWeeklyXp(progress);
   const league = getLeague(weeklyXp);
   const tokens = progress.tokens || 0;
   const freezes = progress.streakFreezes || 0;

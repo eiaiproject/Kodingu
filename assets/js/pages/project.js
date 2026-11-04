@@ -1,4 +1,4 @@
-import { getProject, projects } from './data-projects.js';
+import { getProject, projects } from '../data/data-projects.js';
 import {
   buildProjectPreview,
   completeProject,
@@ -13,8 +13,8 @@ import {
   setSocialMeta,
   toggleProjectRequirement,
   toast
-} from './app.js';
-import { mountWorkspace } from './workspace.js';
+} from '../core/app.js';
+import { mountWorkspace } from '../editor/workspace.js';
 
 const project = getProject(new URLSearchParams(window.location.search).get('project'));
 const main = document.querySelector('#project-main');

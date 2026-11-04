@@ -1,4 +1,4 @@
-import { getCourse, getAllLessons } from './data.js';
+import { getCourse, getAllLessons } from '../data/course-index.js';
 import {
   escapeHtml,
   getCourseStats,
@@ -11,7 +11,7 @@ import {
   setPageTitle,
   setSocialMeta,
   statusLabel
-} from './app.js';
+} from '../core/app.js';
 
 function renderNotFound() {
   setPageTitle('Course not found');

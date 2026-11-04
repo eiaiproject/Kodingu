@@ -1,4 +1,4 @@
-import { extraChallenges, getChallenge } from './data-challenges.js';
+import { extraChallenges, getChallenge } from '../data/data-challenges.js';
 import {
   completeChallenge,
   escapeHtml,
@@ -10,8 +10,8 @@ import {
   setPageTitle,
   setSocialMeta,
   toast
-} from './app.js';
-import { mountWorkspace, wireCopyCode, wireToggle } from './workspace.js';
+} from '../core/app.js';
+import { mountWorkspace, wireCopyCode, wireToggle } from '../editor/workspace.js';
 
 const params = new URLSearchParams(window.location.search);
 const challenge = getChallenge(params.get('challenge'));
@@ -293,6 +293,7 @@ function wireChallenge() {
     starter: challenge.starter,
     draftKey: `kodingu.challengeDraft.${challenge.id}`,
     onCheck: updateFinishState,
+    onEdit: updateFinishState,
     onReset: updateFinishState
   });
 
@@ -313,11 +314,10 @@ function wireChallenge() {
     renderSidebar();
     renderMain();
   });
-
-  wireCopyCode(main);
 }
 
 initChrome();
+wireCopyCode(main);
 if (challenge) {
   setPageTitle(challenge.title);
   setSocialMeta({

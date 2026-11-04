@@ -1,6 +1,6 @@
 import { ICONS } from './icons.js';
-import { courses, getAllLessons } from './data.js';
-import { runJavaScriptLesson } from './js-runner.js';
+import { courses, getAllLessons } from '../data/course-index.js';
+import { runJavaScriptLesson } from '../editor/js-runner.js';
 import {
   CHEST_COST,
   FREEZE_LIMIT,
@@ -90,21 +90,35 @@ function defaultProgress() {
 const objectOrEmpty = (value) =>
   value && typeof value === 'object' ? value : {};
 
+const finiteNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
 function normalizeProgress(parsed) {
   const data = objectOrEmpty(parsed);
   const completed = objectOrEmpty(data.completed);
+  const completedChallenges = objectOrEmpty(data.completedChallenges);
+  const completedProjects = objectOrEmpty(data.completedProjects);
+  const fallbackTokens =
+    Object.keys(completed).length * TOKENS_PER_LESSON +
+    Object.keys(completedChallenges).length * TOKENS_PER_CHALLENGE +
+    Object.keys(completedProjects).length * TOKENS_PER_PROJECT;
   return {
     ...defaultProgress(),
     ...data,
     completed,
-    completedChallenges: objectOrEmpty(data.completedChallenges),
-    completedProjects: objectOrEmpty(data.completedProjects),
+    completedChallenges,
+    completedProjects,
     projectChecks: objectOrEmpty(data.projectChecks),
-    tokens: Number.isFinite(data.tokens)
-      ? data.tokens
-      : Object.keys(completed).length * TOKENS_PER_LESSON,
-    streakFreezes: Number.isFinite(data.streakFreezes) ? data.streakFreezes : 0,
-    chestsOpened: Number.isFinite(data.chestsOpened) ? data.chestsOpened : 0,
+    xp: finiteNumber(data.xp),
+    tokens: data.tokens === undefined || data.tokens === null
+      ? fallbackTokens
+      : finiteNumber(data.tokens, fallbackTokens),
+    streakFreezes: finiteNumber(data.streakFreezes),
+    chestsOpened: finiteNumber(data.chestsOpened),
+    streak: finiteNumber(data.streak),
+    lastLessonDay: typeof data.lastLessonDay === 'string' ? data.lastLessonDay : null,
     quizzes: objectOrEmpty(data.quizzes),
     history: Array.isArray(data.history) ? data.history : [],
     missions: objectOrEmpty(data.missions),
@@ -131,7 +145,14 @@ export function getProgress() {
 
 export function saveProgress(progress) {
   if (storageAvailable()) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    } catch (error) {
+      // A full or newly blocked store must not stop the page that earned the progress.
+      storageOk = false;
+      memoryProgress = progress;
+      console.warn('Kodingu: progress will stay in memory because local storage could not be written.', error);
+    }
   } else {
     memoryProgress = progress;
   }
@@ -140,7 +161,12 @@ export function saveProgress(progress) {
 
 export function resetProgress() {
   if (storageAvailable()) {
-    localStorage.removeItem(STORAGE_KEY);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      storageOk = false;
+      console.warn('Kodingu: the saved progress could not be removed.', error);
+    }
   }
   memoryProgress = defaultProgress();
   window.dispatchEvent(new CustomEvent('kodingu:progress', { detail: memoryProgress }));
@@ -446,7 +472,11 @@ export function getCourseStats(course) {
 
 export function getTodayCount(progress = getProgress()) {
   const today = dayKey();
-  return (progress.history || []).filter((entry) => entry.type === 'lesson' && dayKey(new Date(entry.at)) === today).length;
+  return Object.values(progress.completed || {}).filter((entry) => {
+    if (!entry.at) return false;
+    const date = new Date(entry.at);
+    return !Number.isNaN(date.getTime()) && dayKey(date) === today;
+  }).length;
 }
 
 export function formatRelativeDate(iso) {
@@ -595,7 +625,7 @@ function headerStatsMarkup(progress) {
   return `
     <span class="header-stat" data-stat="xp">${icon('Gauge', { size: 16 })}<span></span></span>
     <span class="header-stat" data-stat="streak">${icon('Fire', { size: 16 })}<span></span></span>
-    ${tokens ? `<span class="header-stat" data-stat="tokens">${icon('Coins', { size: 16 })}<span></span></span>` : ''}
+    <span class="header-stat" data-stat="tokens">${icon('Coins', { size: 16 })}<span></span></span>
   `;
 }
 
@@ -793,8 +823,15 @@ export function setMetaDescription(description) {
 const FALLBACK_ORIGIN = 'https://kodingu.pages.dev';
 
 function siteOrigin() {
-  const origin = window.location.origin;
-  return origin && origin !== 'null' ? origin : FALLBACK_ORIGIN;
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) {
+    try {
+      return new URL(canonical.href).origin;
+    } catch (error) {
+      // A malformed canonical falls back to the production origin.
+    }
+  }
+  return FALLBACK_ORIGIN;
 }
 
 function setMetaContent(selector, value) {

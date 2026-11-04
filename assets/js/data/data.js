@@ -1,11 +1,14 @@
 import { textOf, textsOf } from './data-helpers.js';
 import { htmlModulesPhase2 } from './data-html-2.js';
 import { htmlModulesPhase3 } from './data-html-3.js';
+import { htmlModulesPhase4 } from './data-html-4.js';
 import { cssFoundations } from './data-css.js';
 import { cssLayout } from './data-css-layout.js';
 import { cssModern } from './data-css-modern.js';
+import { cssComponents } from './data-css-components.js';
 import { jsModules } from './data-js.js';
 import { jsData } from './data-js-data.js';
+import { jsModern } from './data-js-modern.js';
 
 const pageSkeleton = `<!DOCTYPE html>
 <html lang="en">
@@ -497,7 +500,8 @@ export const courses = [
         ]
       },
       ...htmlModulesPhase2,
-      ...htmlModulesPhase3
+      ...htmlModulesPhase3,
+      ...htmlModulesPhase4
     ]
   },
   {
@@ -509,7 +513,7 @@ export const courses = [
     status: 'open',
     level: 'Beginner',
     language: 'css',
-    modules: [...cssFoundations, ...cssLayout, ...cssModern]
+    modules: [...cssFoundations, ...cssLayout, ...cssModern, ...cssComponents]
   },
   {
     id: 'js',
@@ -519,7 +523,7 @@ export const courses = [
       'Learn how to store values, write functions, select elements, and make a page respond.',
     status: 'open',
     level: 'Beginner',
-    modules: [...jsModules, ...jsData]
+    modules: [...jsModules, ...jsData, ...jsModern]
   }
 ];
 

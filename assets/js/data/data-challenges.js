@@ -98,14 +98,14 @@ export const extraChallenges = [
     summary: 'Turn three real course counts into a table with a caption and row headers.',
     objective: 'Build an accessible table with a caption, column headers, and row headers.',
     prompt:
-      'Build a table titled "Lessons by course". The columns are Course and Lessons. Add three rows: HTML with 20, CSS with 12, and JavaScript with 8. Use scope on the headers.',
+      'Build a table titled "Lessons by course". The columns are Course and Lessons. Add three rows: HTML with 32, CSS with 19, and JavaScript with 15. Use scope on the headers.',
     requirements: [
       'Use one table element.',
       'Add a caption that says "Lessons by course".',
       'Add two column headers with scope="col": "Course" and "Lessons".',
       'Add three body rows.',
       'Use row headers with scope="row" for HTML, CSS, and JavaScript.',
-      'The lesson counts are 20, 12, and 8.'
+      'The lesson counts are 32, 19, and 15.'
     ],
     starter: `<table>\n</table>\n`,
     solution: `<table>
@@ -117,9 +117,9 @@ export const extraChallenges = [
     </tr>
   </thead>
   <tbody>
-    <tr><th scope="row">HTML</th><td>20</td></tr>
-    <tr><th scope="row">CSS</th><td>12</td></tr>
-    <tr><th scope="row">JavaScript</th><td>8</td></tr>
+    <tr><th scope="row">HTML</th><td>32</td></tr>
+    <tr><th scope="row">CSS</th><td>19</td></tr>
+    <tr><th scope="row">JavaScript</th><td>15</td></tr>
   </tbody>
 </table>`,
     hint: 'A caption belongs directly inside the table. Scope tells a screen reader whether a header names a column or a row.',
@@ -151,10 +151,10 @@ export const extraChallenges = [
         }
       },
       {
-        label: 'The lesson counts are 20, 12, and 8.',
+        label: 'The lesson counts are 32, 19, and 15.',
         run: ({ doc }) => {
           const counts = textsOf(doc, 'tbody td');
-          return counts.join('|') === '20|12|8';
+          return counts.join('|') === '32|19|15';
         }
       }
     ]
