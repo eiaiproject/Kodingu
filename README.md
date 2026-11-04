@@ -23,6 +23,20 @@ There is no account, backend, or AI tutor. Progress, drafts, and preferences sta
 
 Plain HTML, CSS, and JavaScript with ES modules. No framework, build step, or runtime dependency ships with the site. Icons are generated from Reicon, and the three fonts load from Google Fonts. `package.json` exists only for local verification tooling.
 
+The site runs in modern browsers with ES modules and service workers. Without a service worker it still works online; offline support is the extra layer.
+
+## How it works
+
+Kodingu keeps the learning loop in the browser:
+
+1. A page shell loads `core/app.js`, the page controller, and the course data.
+2. The controller reads the query string, finds the lesson, challenge, or project, and renders it.
+3. The editor writes a preview into a sandboxed iframe. HTML checks parse the markup, CSS checks read the stylesheet and preview, and JavaScript checks run in a separate sandboxed frame.
+4. A lesson is finished when its quiz is correct and every check passes. A challenge needs every check, and a project needs its self-check list.
+5. Progress is written to `localStorage`. Learner data is not sent to a server.
+
+`assets/js/data/course-index.js` is generated from the lesson data so list pages do not import every lesson module. Run `npm run course-index` after changing titles, minutes, or XP. The source of truth remains the files under `assets/js/data/`.
+
 ## Courses
 
 | Course | Modules | Lessons | Lesson XP | What it covers |
@@ -105,6 +119,7 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 ```text
 .
 ├── .editorconfig
+├── .sonarcloud.properties     SonarCloud scope for course-data duplication
 ├── .gitignore
 ├── README.md                  Project overview and development guide
 ├── index.html                 Landing page
@@ -179,6 +194,10 @@ The harness starts the dev server, checks the content data (unique IDs, XP total
 
 `node scripts/verify.mjs --only=data` runs a single group. Groups: `data`, `headers`, `seo`, `unit`, `lessons`, `challenges`, `projects`, `pages`, `totals`, `offline`.
 
+`npm run audit` runs a separate Chromium pass for layout, contrast, focus, and compact-control findings.
+
+SonarCloud runs automatic analysis for pull requests. `.sonarcloud.properties` keeps course data and the generated index out of copy-paste detection because they share a deliberate schema; runtime code remains in the duplication metric.
+
 Chromium needs system libraries. If it cannot start, run `npx playwright install-deps chromium` with an account that can install packages.
 
 ## Search and sharing
@@ -194,6 +213,16 @@ Lessons are rendered in the browser, so a crawler that does not run JavaScript s
 ## Deploy
 
 The live site is deployed on Cloudflare Pages at [https://kodingu.pages.dev/](https://kodingu.pages.dev/).
+
+To deploy the same static site, connect the repository to Cloudflare Pages with these settings:
+
+| Setting | Value |
+| --- | --- |
+| Production branch | `main` |
+| Build command | Leave empty |
+| Output directory | Repository root |
+
+`_headers` adds the security policy. `sw.js` registers on HTTPS or localhost and provides the offline shell.
 
 ## Development workflow
 
@@ -254,11 +283,8 @@ The site uses semantic landmarks, a skip link, visible focus styles, keyboard-op
 
 ## Credits and references
 
-- Icons:
-[Reicon](https://reicon.dev) (MIT).
+- Icons: [Reicon](https://reicon.dev) (MIT).
 - Fonts: Shippori Mincho, Public Sans, and IBM Plex Mono, loaded from Google Fonts.
 - Source: [eiaiproject/Kodingu](https://github.com/eiaiproject/Kodingu).
-- Syllabus reference(s):
-[MDN Web Docs](https://developer.mozilla.org/en-US/).
-[W3Schools](https://www.w3schools.com/).
+- Syllabus references: [MDN Web Docs](https://developer.mozilla.org/en-US/), [W3Schools](https://www.w3schools.com/).
 - Design and copy rules: [anti-slop](https://github.com/miqdadbadjuber/anti-slop).
