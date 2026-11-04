@@ -117,11 +117,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   const holdsCode = /\.(?:js|css)$/.test(url.pathname);
-  event.respondWith(
-    request.mode === 'navigate'
-      ? networkFirst(request)
-      : holdsCode
-        ? networkFirstAsset(request)
-        : cacheFirst(request)
-  );
+  let handler = cacheFirst;
+  if (request.mode === 'navigate') handler = networkFirst;
+  else if (holdsCode) handler = networkFirstAsset;
+  event.respondWith(handler(request));
 });

@@ -9,10 +9,12 @@ import {
   icon,
   initChrome,
   progressBar,
+  renderMissingPage,
   setPageTitle,
   setSocialMeta,
   toggleProjectRequirement,
-  toast
+  toast,
+  wireSidebar
 } from '../core/app.js';
 import { mountWorkspace } from '../editor/workspace.js';
 
@@ -69,33 +71,20 @@ function renderSidebar() {
     </nav>
   `;
 
-  const toggle = sidebar.querySelector('#sidebar-toggle');
-  const list = sidebar.querySelector('#sidebar-lessons');
-  toggle?.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') === 'true';
-    toggle.setAttribute('aria-expanded', String(!open));
-    if (list) list.dataset.open = String(!open);
-  });
+  wireSidebar(sidebar);
 }
 
 function renderNotFound() {
-  setPageTitle('Project not found');
-  if (sidebar) sidebar.innerHTML = '';
-  if (!main) return;
-  main.innerHTML = `
-    <div class="page-head">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <a href="catalog.html">Catalog</a>
-        <span class="sep" aria-hidden="true">/</span>
-        <a href="projects.html">Projects</a>
-      </nav>
-      <h1>Project not found</h1>
-      <p class="lede">This project address does not match a project in the library.</p>
-      <div class="hero-actions">
-        <a class="button button-primary" href="projects.html">Open the project library</a>
-      </div>
-    </div>
-  `;
+  renderMissingPage({
+    mount: main,
+    sidebar,
+    title: 'Project not found',
+    message: 'This project address does not match a project in the library.',
+    actionHref: 'projects.html',
+    actionLabel: 'Open the project library',
+    parentHref: 'projects.html',
+    parentLabel: 'Projects'
+  });
 }
 
 function completedPanelMarkup(progress) {

@@ -811,6 +811,36 @@ export function initChrome() {
   registerServiceWorker();
 }
 
+export function wireSidebar(root) {
+  const toggle = root?.querySelector('#sidebar-toggle');
+  const list = root?.querySelector('#sidebar-lessons');
+  toggle?.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!open));
+    if (list) list.dataset.open = String(!open);
+  });
+}
+
+export function renderMissingPage({ mount, sidebar, title, message, actionHref, actionLabel, parentHref, parentLabel }) {
+  setPageTitle(title);
+  if (sidebar) sidebar.innerHTML = '';
+  if (!mount) return;
+  mount.innerHTML = `
+    <div class="page-head">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="catalog.html">Catalog</a>
+        <span class="sep" aria-hidden="true">/</span>
+        <a href="${escapeHtml(parentHref)}">${escapeHtml(parentLabel)}</a>
+      </nav>
+      <h1>${escapeHtml(title)}</h1>
+      <p class="lede">${escapeHtml(message)}</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="${escapeHtml(actionHref)}">${escapeHtml(actionLabel)}</a>
+      </div>
+    </div>
+  `;
+}
+
 export function setPageTitle(title) {
   document.title = title ? `${title} · Kodingu` : 'Kodingu';
 }

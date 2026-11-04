@@ -7,9 +7,11 @@ import {
   icon,
   initChrome,
   progressBar,
+  renderMissingPage,
   setPageTitle,
   setSocialMeta,
-  toast
+  toast,
+  wireSidebar
 } from '../core/app.js';
 import { mountWorkspace, wireCopyCode, wireToggle } from '../editor/workspace.js';
 
@@ -73,33 +75,20 @@ function renderSidebar() {
     </nav>
   `;
 
-  const toggle = sidebar.querySelector('#sidebar-toggle');
-  const list = sidebar.querySelector('#sidebar-lessons');
-  toggle?.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') === 'true';
-    toggle.setAttribute('aria-expanded', String(!open));
-    if (list) list.dataset.open = String(!open);
-  });
+  wireSidebar(sidebar);
 }
 
 function renderNotFound() {
-  setPageTitle('Challenge not found');
-  if (sidebar) sidebar.innerHTML = '';
-  if (!main) return;
-  main.innerHTML = `
-    <div class="page-head">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <a href="catalog.html">Catalog</a>
-        <span class="sep" aria-hidden="true">/</span>
-        <a href="practice.html">Practice</a>
-      </nav>
-      <h1>Challenge not found</h1>
-      <p class="lede">This challenge address does not match one in the practice set.</p>
-      <div class="hero-actions">
-        <a class="button button-primary" href="practice.html">Open the practice set</a>
-      </div>
-    </div>
-  `;
+  renderMissingPage({
+    mount: main,
+    sidebar,
+    title: 'Challenge not found',
+    message: 'This challenge address does not match one in the practice set.',
+    actionHref: 'practice.html',
+    actionLabel: 'Open the practice set',
+    parentHref: 'practice.html',
+    parentLabel: 'Practice'
+  });
 }
 
 function codeBlock(code, lang) {

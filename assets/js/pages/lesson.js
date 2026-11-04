@@ -13,7 +13,8 @@ import {
   recordQuiz,
   setPageTitle,
   setSocialMeta,
-  toast
+  toast,
+  wireSidebar
 } from '../core/app.js';
 import { mountWorkspace, wireCopyCode, wireToggle } from '../editor/workspace.js';
 
@@ -97,13 +98,7 @@ function renderSidebar() {
     </nav>
   `;
 
-  const toggle = mount.querySelector('#sidebar-toggle');
-  const list = mount.querySelector('#sidebar-lessons');
-  toggle?.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') === 'true';
-    toggle.setAttribute('aria-expanded', String(!open));
-    if (list) list.dataset.open = String(!open);
-  });
+  wireSidebar(mount);
 }
 
 function completedPanelMarkup() {
