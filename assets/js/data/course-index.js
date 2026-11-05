@@ -570,6 +570,41 @@ export const courses = [
             "language": "js"
           }
         ]
+      },
+      {
+        "id": "js-m5",
+        "title": "JavaScript in practice",
+        "description": "Four lessons on destructuring, form data, local storage, and the console.",
+        "lessons": [
+          {
+            "id": "js-16",
+            "title": "Unpack values with destructuring",
+            "minutes": 8,
+            "xp": 25,
+            "language": "js"
+          },
+          {
+            "id": "js-17",
+            "title": "Read a form with FormData",
+            "minutes": 9,
+            "xp": 25,
+            "language": "js"
+          },
+          {
+            "id": "js-18",
+            "title": "Save data with localStorage",
+            "minutes": 9,
+            "xp": 25,
+            "language": "js"
+          },
+          {
+            "id": "js-19",
+            "title": "Debug with the console",
+            "minutes": 8,
+            "xp": 25,
+            "language": "js"
+          }
+        ]
       }
     ]
   }

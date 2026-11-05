@@ -329,6 +329,30 @@ await runSeries(THEMES, async (theme) => {
   });
 });
 
+// A 1024px tablet has a coarse pointer even though the width looks like desktop.
+const touchReport = [];
+{
+  const context = await browser.newContext({
+    viewport: { width: 1024, height: 900 },
+    hasTouch: true,
+    serviceWorkers: 'block',
+    reducedMotion: 'reduce'
+  });
+  await context.addInitScript(() => {
+    localStorage.setItem('kodingu.theme', 'light');
+  });
+  const page = await context.newPage();
+  await runSeries(PAGES, async (target) => {
+    await page.goto(`${server.url}${target.url}`, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(120);
+    const metrics = await page.evaluate(MEASURE);
+    touchReport.push({ theme: 'light', width: 1024, touch: true, page: target.id, ...metrics });
+  });
+  await context.close();
+}
+report.push(...touchReport);
+
 // Populated header is the densest state; check it separately.
 await runSeries([390, 320], async (width) => {
   const context = await browser.newContext({

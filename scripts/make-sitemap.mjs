@@ -16,7 +16,7 @@ const paths = [
 for (const course of courses) {
   paths.push(`/course?course=${encodeURIComponent(course.id)}`);
   for (const lesson of getAllLessons(course)) {
-    paths.push(`/lesson?course=${encodeURIComponent(course.id)}&lesson=${encodeURIComponent(lesson.id)}`);
+    paths.push(`/lessons/${encodeURIComponent(lesson.id)}`);
   }
 }
 

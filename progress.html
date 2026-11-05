@@ -25,9 +25,7 @@
   <meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <script src="assets/js/core/theme-init.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&family=Shippori+Mincho:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/fonts.css">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/app.css">
   <script type="module" src="assets/js/pages/progress.js"></script>
@@ -36,7 +34,7 @@
   <noscript><p class="noscript">Kodingu needs JavaScript to read your local progress. Please turn it on.</p></noscript>
   <div id="site-header"></div>
 
-  <main id="main">
+  <main id="main" tabindex="-1">
     <div class="shell page-head">
       <p class="section-label">Progress</p>
       <h1>Your progress</h1>
@@ -52,8 +50,14 @@
       <section class="progress-section" id="history-section" aria-labelledby="history-heading"></section>
 
       <div class="data-note" id="data-note">
-        <p>Progress is saved as <code>kodingu.progress.v1</code> in this browser. Clearing site data removes it.</p>
-        <button class="button button-secondary button-small" id="reset-progress" type="button">Reset progress</button>
+        <p>Progress is saved as <code>kodingu.progress.v1</code> in this browser. Clearing site data removes it, so keep a JSON export if you want a copy.</p>
+        <div class="data-actions">
+          <button class="button button-secondary button-small" id="export-progress" type="button">Export JSON</button>
+          <button class="button button-secondary button-small" id="import-progress" type="button">Import JSON</button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden>
+          <button class="button button-secondary button-small" id="reset-progress" type="button">Reset progress</button>
+        </div>
+        <p class="data-status" id="data-status" role="status"></p>
       </div>
     </div>
   </main>

@@ -5,6 +5,16 @@ export const textOf = (doc, selector) => normalize(doc.querySelector(selector)?.
 export const textsOf = (doc, selector) =>
   Array.from(doc.querySelectorAll(selector)).map((node) => normalize(node.textContent));
 
+export function parseJsonLd(doc) {
+  const node = doc.querySelector('script[type="application/ld+json"]');
+  if (!node) return null;
+  try {
+    return JSON.parse(node.textContent);
+  } catch {
+    return null;
+  }
+}
+
 const stripCssComments = (css) => String(css || '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 function parseDeclarations(body) {

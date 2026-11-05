@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
     "course-index": "node scripts/make-course-index.mjs",
+    "lesson-data": "node scripts/make-lesson-data.mjs",
+    "pages": "node scripts/make-pages.mjs",
     "verify": "node scripts/verify.mjs",
     "audit": "node scripts/audit-ui.mjs",
+    "fonts": "node scripts/fetch-fonts.mjs",
     "icons": "node scripts/fetch-icons.mjs",
     "favicon": "node scripts/make-favicon.mjs",
     "og-image": "node scripts/make-og-image.mjs",
@@ -17,7 +20,7 @@
     "playwright": "^1.64.1"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "type": "module"
 }

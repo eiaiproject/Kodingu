@@ -4,7 +4,7 @@
 
 Kodingu is a small, quiet learning workspace for the web. It teaches HTML, CSS, and JavaScript through short lessons that are read, written, and checked in the browser. There is no account, no paywall, and no AI tutor.
 
-The first release opens all three courses: 26 HTML lessons, 15 CSS lessons, and 11 JavaScript lessons.
+The current release opens all three courses: 32 HTML lessons, 19 CSS lessons, and 19 JavaScript lessons.
 
 Design Read: a beginner coding school for quiet learners, in a Zen minimal Japanese-print style, dial ENERGY 1 / RHYTHM 2 / MOTION 1.
 
@@ -44,7 +44,7 @@ No large monospace headings. No uppercase labels with wide tracking. Labels are 
 - Tablet collapses to a single column with the demo after the copy.
 - Mobile uses one column, a compact header, and a collapsible lesson index. The editor and preview stack.
 - Section spacing varies: the method band is tight and sunken, the catalog is open, the progress section is split. The rhythm is not one repeated centered stack.
-- One element is allowed to lift: the lesson demo in the hero. It carries the only shadow because it is the product proof, not decoration.
+- The lesson demo in the hero is the only content surface that lifts. It carries a shadow because it is the product proof, not decoration. The open mobile menu is an overlay, so it may also carry a shadow while it sits above the page.
 
 ## Motion
 
@@ -86,7 +86,7 @@ Examples:
 - **Shippori Mincho for display:** it carries the Japanese print influence without turning the UI into costume.
 - **Public Sans for body:** it keeps instructions plain and legible at small sizes.
 - **Asymmetric hero:** the copy and the working lesson demo are different jobs, so they get different widths.
-- **One shadow:** the demo is the only element that needs to sit above the page.
+- **One content shadow:** the demo is the only content surface that needs to sit above the page. The mobile menu is an overlay and may lift while open.
 - **No motif pattern:** the chosen direction is Zen minimal, so texture would add noise without meaning.
 - **Working light and dark themes:** the product is content-first, so the reader gets the choice.
 - **44px controls on mobile:** the audience may be learning on a phone between other tasks, so the primary controls need a comfortable target.

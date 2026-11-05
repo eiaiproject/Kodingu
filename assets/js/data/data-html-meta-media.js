@@ -14,6 +14,7 @@ import {
   raw,
   text
 } from './lesson-builder.js';
+import { parseJsonLd } from './data-helpers.js';
 
 const documentSkeleton = `<!DOCTYPE html>
 <html lang="en">
@@ -37,18 +38,7 @@ const mediaSkeleton = `<!DOCTYPE html>
   </body>
 </html>`;
 
-function parseJsonLd(doc) {
-  const node = doc.querySelector('script[type="application/ld+json"]');
-  if (!node) return null;
-  try {
-    return JSON.parse(node.textContent);
-  } catch {
-    // Invalid JSON is a failed check, not a page error.
-    return null;
-  }
-}
-
-export const htmlModulesPhase3 = [
+export const htmlModulesMetaMedia = [
   lessonModule(
     'html-m5',
     'Metadata and sharing',

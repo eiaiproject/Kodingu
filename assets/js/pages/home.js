@@ -8,13 +8,29 @@ import {
   statusLabel
 } from '../core/app.js';
 
+function courseLessonCount(course) {
+  return course.modules.reduce((total, module) => total + module.lessons.length, 0);
+}
+
+function renderHeroNote() {
+  const note = document.querySelector('#hero-counts');
+  if (!note) return;
+
+  const counts = courses.map((course) => {
+    const lessonCount = courseLessonCount(course);
+    return `${lessonCount} ${course.title} ${lessonCount === 1 ? 'lesson' : 'lessons'}`;
+  });
+  const list = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' });
+  note.textContent = `${list.format(counts)} are open now.`;
+}
+
 function renderCourses() {
   const list = document.querySelector('#home-courses');
   if (!list) return;
 
   list.innerHTML = courses
     .map((course, index) => {
-      const lessonCount = course.modules.reduce((total, module) => total + module.lessons.length, 0);
+      const lessonCount = courseLessonCount(course);
       const meta = lessonCount ? pluralize(lessonCount, 'lesson') : 'Being written';
       return `
         <li class="course-row">
@@ -56,5 +72,6 @@ function initDemo() {
 }
 
 initChrome();
+renderHeroNote();
 renderCourses();
 initDemo();

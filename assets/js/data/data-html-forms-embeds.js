@@ -25,7 +25,7 @@ ${body}
   </body>
 </html>`;
 
-export const htmlModulesPhase4 = [
+export const htmlModulesFormsEmbeds = [
   lessonModule(
     'html-m7',
     'Forms that guide input',
