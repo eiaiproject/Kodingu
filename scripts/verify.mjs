@@ -500,7 +500,7 @@ async function runUnitChecks(page, base) {
       xp: progress.xp,
       streak: progress.streak,
       version: progress.version,
-      hasTokens: Object.prototype.hasOwnProperty.call(progress, 'tokens')
+      hasTokens: Object.hasOwn(progress, 'tokens')
     };
   });
   assert(
@@ -1039,8 +1039,14 @@ async function checkSeo(base) {
     'sitemap leaves noindex and query-only shells out'
   );
 
-  for (const file of ['lesson.html', 'challenge.html', 'project.html', 'progress.html', 'certificate.html']) {
-    const html = await (await fetch(`${base}/${file}`)).text();
+  const shells = ['lesson.html', 'challenge.html', 'project.html', 'progress.html', 'certificate.html'];
+  const shellMarkup = await Promise.all(
+    shells.map(async (file) => ({
+      file,
+      html: await (await fetch(`${base}/${file}`)).text()
+    }))
+  );
+  for (const { file, html } of shellMarkup) {
     assert(html.includes('content="noindex'), `${file}: asks search engines not to index it`);
   }
   const staticLessons = locations.filter((location) => location.includes('/lessons/'));
