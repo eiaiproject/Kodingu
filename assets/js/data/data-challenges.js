@@ -6,9 +6,9 @@ function courseLessonCount(courseId) {
   return course ? course.modules.reduce((total, module) => total + module.lessons.length, 0) : 0;
 }
 
-const htmlCount = String(courseLessonCount('html'));
-const cssCount = String(courseLessonCount('css'));
-const jsCount = String(courseLessonCount('js'));
+const htmlCount = Number(courseLessonCount('html'));
+const cssCount = Number(courseLessonCount('css'));
+const jsCount = Number(courseLessonCount('js'));
 
 const ticketPreview = `<article class="ticket">
   <div>
