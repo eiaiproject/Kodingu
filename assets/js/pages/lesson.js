@@ -38,14 +38,15 @@ function getPreviousLesson(course, lessonId) {
   return index > 0 ? lessons[index - 1] : null;
 }
 
-async function cacheLessonData(url) {
+function cacheLessonData(url) {
   if (!navigator.serviceWorker) return;
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    registration.active?.postMessage({ type: 'cache-page', url: url.href });
-  } catch (error) {
-    console.warn('Kodingu: lesson data could not be cached.', error);
-  }
+  navigator.serviceWorker.ready
+    .then((registration) => {
+      registration.active?.postMessage({ type: 'cache-page', url: url.href });
+    })
+    .catch((error) => {
+      console.warn('Kodingu: lesson data could not be cached.', error);
+    });
 }
 
 const params = new URLSearchParams(window.location.search);
@@ -60,7 +61,7 @@ if (lessonSummary) {
     );
     const data = await import(lessonDataUrl);
     found = { ...lessonSummary, lesson: data.lesson };
-    void cacheLessonData(lessonDataUrl);
+    cacheLessonData(lessonDataUrl);
   } catch (error) {
     console.warn('Kodingu: lesson data could not be loaded.', error);
   }
