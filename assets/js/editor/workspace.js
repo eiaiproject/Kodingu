@@ -173,8 +173,19 @@ export function mountWorkspace(options) {
     }
   };
 
+  const flushDraft = () => {
+    window.clearTimeout(saveTimer);
+    saveDraft();
+  };
+
   const reset = () => {
     if (!editor) return;
+    if (
+      editor.value !== starter &&
+      !window.confirm('Reset the editor to the starter? Your current code will be discarded.')
+    ) {
+      return;
+    }
     // Cancel any check that started before the reset.
     checkSequence += 1;
     checking = false;
@@ -202,6 +213,11 @@ export function mountWorkspace(options) {
     renderScriptError(errorMount, null);
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(saveDraft, 400);
+  });
+
+  window.addEventListener('pagehide', flushDraft);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushDraft();
   });
 
   editor?.addEventListener('keydown', (event) => {

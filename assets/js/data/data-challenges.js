@@ -48,7 +48,6 @@ export const extraChallenges = [
     title: 'A session card',
     minutes: 12,
     xp: 30,
-    tokens: 10,
     summary: 'Build a small conference card with a time element and a real link.',
     objective: 'Mark up one event card with a heading, a machine-readable date, and a same-page link.',
     prompt:
@@ -104,7 +103,6 @@ export const extraChallenges = [
     title: 'A data table',
     minutes: 14,
     xp: 30,
-    tokens: 10,
     summary: 'Turn three real course counts into a table with a caption and row headers.',
     objective: 'Build an accessible table with a caption, column headers, and row headers.',
     prompt:
@@ -175,7 +173,6 @@ export const extraChallenges = [
     title: 'A ticket stub',
     minutes: 14,
     xp: 30,
-    tokens: 10,
     summary: 'Style a two-part ticket with a custom property, a strong edge, and a mobile stack.',
     objective: 'Use grid, a custom property, and one media query to build a ticket layout.',
     prompt:
@@ -240,7 +237,6 @@ export const extraChallenges = [
     title: 'A responsive quote',
     minutes: 12,
     xp: 30,
-    tokens: 10,
     summary: 'Give a quotation a measured line, a quiet rule, and a smaller mobile step.',
     objective: 'Style a figure and its quote, then tune the spacing at a narrow width.',
     prompt:
@@ -316,7 +312,6 @@ export const extraChallenges = [
     title: 'A tab switcher',
     minutes: 16,
     xp: 35,
-    tokens: 10,
     summary: 'Make two tab buttons swap their panels without reloading the page.',
     objective: 'Connect click events to aria-selected and the hidden property.',
     prompt:
@@ -391,7 +386,6 @@ tabs.forEach((tab) => {
     title: 'A word count',
     minutes: 14,
     xp: 30,
-    tokens: 10,
     summary: 'Count words as the learner types, with the right singular and plural label.',
     objective: 'Listen for input events, split text into words, and write a live count.',
     prompt:

@@ -6,7 +6,6 @@ export const projects = [
     level: 'Beginner',
     minutes: 45,
     xp: 80,
-    tokens: 20,
     summary: 'Build a semantic recipe with a header, two lists, a cook\'s note, and a link back to the top.',
     description:
       'A recipe is a useful first project because the content already has a shape: a name, ingredients, steps, and a note. You will write the page by hand and keep every part in a sensible element.',
@@ -103,7 +102,6 @@ export const projects = [
     level: 'Beginner',
     minutes: 60,
     xp: 100,
-    tokens: 20,
     summary: 'Turn a plain article into a measured reading page with type, quotes, and a mobile step.',
     description:
       'This project is about the part of CSS that readers feel before they notice it: line length, line height, spacing, and a link that is easy to find. The HTML is already written. Your job is to make it comfortable to read.',
@@ -225,7 +223,6 @@ export const projects = [
     level: 'Beginner',
     minutes: 60,
     xp: 100,
-    tokens: 20,
     summary: 'Build a counter that adds notes, keeps the plural label correct, and resets cleanly.',
     description:
       'This is a small state machine with a page attached. You will keep one number in sync with a label, a list, and two buttons. The project is finished when every click leaves the page in a state you can explain.',
@@ -330,7 +327,6 @@ export const projects = [
     level: 'Intermediate',
     minutes: 90,
     xp: 150,
-    tokens: 20,
     summary: 'Build a one-page studio site with a responsive work grid, a skip link, and one working script.',
     description:
       'This is the capstone project. The page needs a clear structure, a layout that changes at a narrow width, visible focus, and one behavior that earns its place. The copy and the work cards are placeholders. Replace them with your own.',

@@ -109,7 +109,7 @@ function completedPanelMarkup(progress) {
   return `
     <section class="finish-panel is-complete" id="finish-panel" aria-labelledby="finish-heading">
       <h2 class="finish-title" id="finish-heading">${icon('CheckCircle', { size: 20 })} Challenge complete</h2>
-      <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${challenge.xp} XP and ${entry?.tokens || challenge.tokens} tokens. Extra practice does not change course progress.</p>
+      <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${challenge.xp} XP. Extra practice does not change course progress.</p>
       <div class="finish-actions">
         ${next ? `<a class="button button-primary" href="challenge.html?challenge=${encodeURIComponent(next.id)}">Next challenge: ${escapeHtml(next.title)}</a>` : '<a class="button button-primary" href="practice.html">All challenges</a>'}
         <a class="button button-secondary" href="practice.html">Practice set</a>
@@ -299,9 +299,12 @@ function wireChallenge() {
       toast('This challenge is already complete.');
       return;
     }
-    toast(`Challenge complete. +${result.xpEarned} XP, +${result.tokensEarned} tokens.`);
+    toast(`Challenge complete. +${result.xpEarned} XP.`);
     renderSidebar();
     renderMain();
+    const heading = document.querySelector('#challenge-main h1');
+    heading?.setAttribute('tabindex', '-1');
+    heading?.focus();
   });
 }
 

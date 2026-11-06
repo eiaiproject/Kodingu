@@ -361,6 +361,21 @@ async function runLesson(page, base, course, lesson) {
     assert(restored === expected, `${lesson.id}: the solution passes again after an edit`, restored);
   }
 
+  const wrongAnswer = (lesson.quiz.answer + 1) % lesson.quiz.options.length;
+  await page.check(`input[name="quiz"][value="${wrongAnswer}"]`);
+  await page.click('#quiz-check');
+  await page.waitForSelector('.feedback.is-fail', { timeout: 5000 });
+  const wrongFeedback = await page.$eval('.feedback.is-fail', (node) => ({
+    text: node.textContent.replace(/\s+/g, ' ').trim(),
+    role: node.getAttribute('role')
+  }));
+  const explanation = lesson.quiz.explanation.replace(/\s+/g, ' ').trim();
+  assert(
+    wrongFeedback.text.includes(explanation) && wrongFeedback.role === 'status',
+    `${lesson.id}: a wrong quiz answer explains why and is announced`,
+    JSON.stringify(wrongFeedback)
+  );
+
   await page.check(`input[name="quiz"][value="${lesson.quiz.answer}"]`);
   await page.click('#quiz-check');
   await page.waitForSelector('.feedback.is-pass', { timeout: 5000 });
@@ -369,6 +384,12 @@ async function runLesson(page, base, course, lesson) {
   await page.click('#finish-lesson');
   await page.waitForSelector('#finish-panel.is-complete', { timeout: 5000 });
   pass(`${lesson.id}: finishes and records progress`);
+  const finishFocus = await page.evaluate(() => document.activeElement?.id || '');
+  assert(
+    finishFocus === 'finish-heading',
+    `${lesson.id}: focus moves to the completion heading`,
+    `active element "${finishFocus}"`
+  );
 
   const violations = await page.evaluate(() => window.__cspViolations || []);
   assert(!violations.length, `${lesson.id}: no CSP violations`, violations.join(' | '));
@@ -416,20 +437,15 @@ async function runUnitChecks(page, base) {
       date.setDate(date.getDate() - offset);
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     };
-    const base = { streak: 5, streakFreezes: 1 };
     return {
-      today: app.getStreakState({ ...base, lastLessonDay: keyFor(0) }),
-      yesterday: app.getStreakState({ ...base, lastLessonDay: keyFor(1) }),
-      bridged: app.getStreakState({ ...base, lastLessonDay: keyFor(2) }),
-      noFreeze: app.getStreakState({ ...base, streakFreezes: 0, lastLessonDay: keyFor(2) }),
-      stale: app.getStreakState({ ...base, lastLessonDay: keyFor(3) })
+      today: app.getStreakState({ streak: 5, lastLessonDay: keyFor(0) }),
+      yesterday: app.getStreakState({ streak: 5, lastLessonDay: keyFor(1) }),
+      stale: app.getStreakState({ streak: 5, lastLessonDay: keyFor(2) })
     };
   });
-  assert(streak.today.streak === 5 && !streak.today.protectedByFreeze, 'streak: a lesson today counts normally');
-  assert(streak.yesterday.streak === 5 && !streak.yesterday.protectedByFreeze, 'streak: a lesson yesterday counts normally');
-  assert(streak.bridged.streak === 5 && streak.bridged.protectedByFreeze, 'streak: a freeze bridging a gap is reported');
-  assert(streak.noFreeze.streak === 0, 'streak: a gap without a freeze ends the streak');
-  assert(streak.stale.streak === 0, 'streak: a three day gap ends the streak even with a freeze');
+  assert(streak.today.streak === 5, 'streak: a lesson today counts normally');
+  assert(streak.yesterday.streak === 5, 'streak: a lesson yesterday counts normally');
+  assert(streak.stale.streak === 0, 'streak: a gap ends the streak');
 
   const projectChecks = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
@@ -464,7 +480,6 @@ async function runUnitChecks(page, base) {
 
   const metrics = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
-    const gamification = await import(new URL('/assets/js/core/gamification.js', window.location.origin).href);
     const at = new Date().toISOString();
     const progress = {
       completed: { 'unit-a': { at, xp: '25' } },
@@ -472,26 +487,30 @@ async function runUnitChecks(page, base) {
       completedProjects: { 'unit-c': { at, xp: 80 } },
       history: []
     };
-    return {
-      weekly: gamification.getWeeklyXp(progress),
-      today: app.getTodayCount(progress),
-      mission: gamification.getMissionProgress(progress, { metric: 'lesson' })
-    };
+    return { today: app.getTodayCount(progress) };
   });
-  assert(metrics.weekly === 135, `progress: weekly XP reads completion maps (found ${metrics.weekly})`);
   assert(metrics.today === 1, `progress: today count reads completion dates (found ${metrics.today})`);
-  assert(metrics.mission === 1, `progress: lesson missions read completion dates (found ${metrics.mission})`);
 
   const normalized = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
-    localStorage.setItem('kodingu.progress.v1', JSON.stringify({ xp: '100', streak: '2', tokens: '5', completed: {} }));
+    localStorage.setItem('kodingu.progress.v1', JSON.stringify({ xp: '100', streak: '2', completed: {} }));
     const progress = app.getProgress();
     localStorage.removeItem('kodingu.progress.v1');
-    return { xp: progress.xp, streak: progress.streak, tokens: progress.tokens };
+    return {
+      xp: progress.xp,
+      streak: progress.streak,
+      version: progress.version,
+      hasTokens: Object.hasOwn(progress, 'tokens')
+    };
   });
   assert(
-    normalized.xp === 100 && normalized.streak === 2 && normalized.tokens === 5,
+    normalized.xp === 100 && normalized.streak === 2,
     'progress: stored numeric strings are normalized',
+    JSON.stringify(normalized)
+  );
+  assert(
+    normalized.version === 2 && !normalized.hasTokens,
+    'progress: version 2 drops the token field',
     JSON.stringify(normalized)
   );
 
@@ -499,7 +518,7 @@ async function runUnitChecks(page, base) {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     localStorage.setItem('kodingu.progress.v1', JSON.stringify({ version: 0, xp: '40', completed: {} }));
     const upgraded = app.getProgress();
-    const imported = app.importProgressPayload({
+    const imported = await app.importProgressPayload({
       format: 'kodingu-progress',
       version: 1,
       progress: {
@@ -512,12 +531,12 @@ async function runUnitChecks(page, base) {
     let futureRejected = false;
     let formatRejected = false;
     try {
-      app.importProgressPayload({ format: 'kodingu-progress', version: 99, progress: {} });
+      await app.importProgressPayload({ format: 'kodingu-progress', version: 99, progress: {} });
     } catch (error) {
       futureRejected = true;
     }
     try {
-      app.importProgressPayload({ format: 'other', version: 1, progress: {} });
+      await app.importProgressPayload({ format: 'other', version: 1, progress: {} });
     } catch (error) {
       formatRejected = true;
     }
@@ -538,13 +557,13 @@ async function runUnitChecks(page, base) {
     return result;
   });
   assert(
-    transfer.upgradedVersion === 1 && transfer.upgradedXp === 40,
-    'progress: unversioned legacy data migrates to version 1',
+    transfer.upgradedVersion === 2 && transfer.upgradedXp === 40,
+    'progress: unversioned legacy data migrates to version 2',
     JSON.stringify(transfer)
   );
   assert(
-    transfer.importedXp === 75 && transfer.savedName === 'Import Tester',
-    'progress: import restores XP and the certificate name',
+    transfer.importedXp === 25 && transfer.savedName === 'Import Tester',
+    'progress: import restores work and recalculates XP',
     JSON.stringify(transfer)
   );
   assert(
@@ -553,37 +572,128 @@ async function runUnitChecks(page, base) {
     JSON.stringify(transfer)
   );
   assert(
-    transfer.exportedVersion === 1 && transfer.exportedXp === 75 && transfer.exportedName === 'Import Tester',
+    transfer.exportedVersion === 2 && transfer.exportedXp === 25 && transfer.exportedName === 'Import Tester',
     'progress: export includes the schema version, progress, and certificate name',
     JSON.stringify(transfer)
   );
 
-  await page.evaluate(() => {
-    localStorage.setItem('kodingu.progress.v1', JSON.stringify({ xp: 100, streak: 0, tokens: 0 }));
-  });
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('[data-stat="tokens"]', { timeout: 5000 });
-  const tokenStat = await page.$eval('[data-stat="tokens"] span', (node) => node.textContent.trim());
-  assert(tokenStat === '0', `header: the token stat stays visible at zero (found "${tokenStat}")`);
-
-  const legacyTokens = await page.evaluate(async () => {
+  const sanitized = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const at = new Date().toISOString();
+    const imported = await app.importProgressPayload({
+      format: 'kodingu-progress',
+      version: 2,
+      progress: {
+        xp: 9999,
+        completed: { 'html-01': { at, xp: 500 }, 'not-a-lesson': { at, xp: 500 } },
+        completedChallenges: { 'extra-html-01': { at, xp: 500 }, 'not-a-challenge': { at, xp: 500 } },
+        completedProjects: { 'project-recipe': { at, xp: 500 }, 'not-a-project': { at, xp: 500 } },
+        history: []
+      }
+    });
+    localStorage.removeItem('kodingu.progress.v1');
+    return {
+      xp: imported.xp,
+      lessons: Object.keys(imported.completed),
+      challenges: Object.keys(imported.completedChallenges),
+      projects: Object.keys(imported.completedProjects)
+    };
+  });
+  const expectedSanitizedXp =
+    25 +
+    extraChallenges.find((item) => item.id === 'extra-html-01').xp +
+    projects.find((item) => item.id === 'project-recipe').xp;
+  assert(
+    sanitized.xp === expectedSanitizedXp,
+    `progress: import recalculates XP from known work (found ${sanitized.xp})`
+  );
+  assert(
+    sanitized.lessons.join(',') === 'html-01' &&
+      sanitized.challenges.join(',') === 'extra-html-01' &&
+      sanitized.projects.join(',') === 'project-recipe',
+    'progress: import drops unknown lesson, challenge, and project IDs',
+    JSON.stringify(sanitized)
+  );
+
+  await openPage(page, base, '/lesson.html?course=html&lesson=html-01');
+  await page.waitForSelector('#editor-code', { timeout: 15000 });
+  const starter = await page.$eval('#editor-code', (editor) => editor.value);
+  await setEditor(page, '#editor-code', '<p>unsaved draft</p>');
+  // Navigate before the 400ms debounce fires; pagehide must flush the draft.
+  await openPage(page, base, '/index.html');
+  const flushedDraft = await page.evaluate(() => localStorage.getItem('kodingu.draft.html-01'));
+  assert(
+    flushedDraft === '<p>unsaved draft</p>',
+    'draft: navigating away flushes the editor before the debounce',
+    String(flushedDraft)
+  );
+
+  await openPage(page, base, '/lesson.html?course=html&lesson=html-01');
+  await page.waitForSelector('#editor-code', { timeout: 15000 });
+  await setEditor(page, '#editor-code', '<p>keep this</p>');
+  let askedToReset = false;
+  page.once('dialog', async (dialog) => {
+    askedToReset = true;
+    await dialog.dismiss();
+  });
+  await page.click('#reset-code');
+  const afterDismiss = await page.$eval('#editor-code', (editor) => editor.value);
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.click('#reset-code');
+  const afterAccept = await page.$eval('#editor-code', (editor) => editor.value);
+  assert(
+    askedToReset && afterDismiss === '<p>keep this</p>' && afterAccept === starter,
+    'draft: reset asks before discarding unsaved code',
+    `asked ${askedToReset}, kept "${afterDismiss}", reset "${afterAccept.slice(0, 24)}"`
+  );
+  await page.evaluate(() => localStorage.removeItem('kodingu.draft.html-01'));
+
+  await page.evaluate(() => localStorage.setItem('kodingu.progress.v1', '{not json'));
+  await openPage(page, base, '/progress.html');
+  await page.waitForSelector('#data-status', { timeout: 10000 });
+  const readError = await page.$eval('#data-status', (node) => ({
+    text: node.textContent.trim(),
+    isError: node.classList.contains('is-error')
+  }));
+  assert(
+    readError.isError && readError.text.includes('could not be read'),
+    'progress: an unreadable saved record is reported',
+    JSON.stringify(readError)
+  );
+  await page.evaluate(() => localStorage.removeItem('kodingu.progress.v1'));
+
+  await page.evaluate(() => {
     localStorage.setItem(
       'kodingu.progress.v1',
       JSON.stringify({
-        completed: { 'legacy-lesson': { at } },
-        completedChallenges: { 'legacy-challenge': { at } },
-        completedProjects: { 'legacy-project': { at } }
+        version: 2,
+        xp: 25,
+        streak: 0,
+        completed: { 'html-01': { at: new Date().toISOString(), xp: 25 } }
       })
     );
-    const tokens = app.getProgress().tokens;
-    localStorage.removeItem('kodingu.progress.v1');
-    return tokens;
   });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.header-cta[data-header-cta]', { timeout: 5000 });
+  const header = await page.evaluate(() => ({
+    text: document.querySelector('.header-cta[data-header-cta]')?.textContent.trim(),
+    href: document.querySelector('.header-cta[data-header-cta]')?.getAttribute('href'),
+    label: document.querySelector('.header-cta[data-header-cta]')?.getAttribute('aria-label'),
+    stats: [...document.querySelectorAll('#header-stats [data-stat]')].map((node) => node.dataset.stat)
+  }));
   assert(
-    legacyTokens === 40,
-    `progress: legacy token fallback counts all completion maps (found ${legacyTokens})`
+    header.text === 'Continue' && header.href.includes('lesson=html-02'),
+    `header: CTA continues at the next unfinished lesson (found "${header.text}" ${header.href})`
+  );
+  assert(
+    header.label.includes('Headings carry rank'),
+    'header: CTA names the next lesson',
+    header.label
+  );
+  assert(
+    header.stats.join(',') === 'xp,streak',
+    'header: the stats strip shows XP and streak without tokens',
+    header.stats.join(',')
   );
 
   const storageFallback = await page.evaluate(async () => {
@@ -725,10 +835,10 @@ async function checkProgressTotals(page, base) {
   const values = await page.$$eval('.stat-value', (nodes) =>
     nodes.map((node) => Number(node.textContent.trim()))
   );
-  const [xp, streak, completedLessons, tokens] = values;
+  const [xp, streak, completedLessons, completedProjects] = values;
   assert(xp === 2410, `progress: 2410 XP after all lessons, challenges, and projects (found ${xp})`);
   assert(completedLessons === 70, `progress: 70 lessons complete (found ${completedLessons})`);
-  assert(tokens === 840, `progress: 840 tokens earned (found ${tokens})`);
+  assert(completedProjects === 4, `progress: 4 projects complete (found ${completedProjects})`);
   assert(streak === 1, `progress: one day streak (found ${streak})`);
 
   const ready = await page.$$eval('.certificate-card.is-ready', (nodes) => nodes.length);
@@ -774,14 +884,14 @@ async function checkProgressTotals(page, base) {
     { timeout: 5000 }
   );
   const importedXp = await page.$eval('.stat-value', (node) => Number(node.textContent.trim()));
-  assert(importedXp === 75, `progress: import file replaces the local profile (found ${importedXp} XP)`);
+  assert(importedXp === 25, `progress: import file replaces the local profile (found ${importedXp} XP)`);
 
   const downloadPromise = page.waitForEvent('download');
   await page.click('#export-progress');
   const download = await downloadPromise;
   const exported = JSON.parse(await readFile(await download.path(), 'utf8'));
   assert(
-    exported.format === 'kodingu-progress' && exported.version === 1 && exported.progress.xp === 75,
+    exported.format === 'kodingu-progress' && exported.version === 2 && exported.progress.xp === 25,
     'progress: export downloads a versioned JSON file',
     JSON.stringify({ format: exported.format, version: exported.version, xp: exported.progress?.xp })
   );
@@ -921,7 +1031,24 @@ async function checkSeo(base) {
 
   const sitemap = await (await fetch(`${base}/sitemap.xml`)).text();
   const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-  assert(locations.length === 88, `sitemap lists 88 URLs (found ${locations.length})`);
+  assert(locations.length === 77, `sitemap lists 77 URLs (found ${locations.length})`);
+  assert(
+    !sitemap.includes('/progress') &&
+      !sitemap.includes('/project?') &&
+      !sitemap.includes('/challenge?'),
+    'sitemap leaves noindex and query-only shells out'
+  );
+
+  const shells = ['lesson.html', 'challenge.html', 'project.html', 'progress.html', 'certificate.html'];
+  const shellMarkup = await Promise.all(
+    shells.map(async (file) => ({
+      file,
+      html: await (await fetch(`${base}/${file}`)).text()
+    }))
+  );
+  for (const { file, html } of shellMarkup) {
+    assert(html.includes('content="noindex'), `${file}: asks search engines not to index it`);
+  }
   const staticLessons = locations.filter((location) => location.includes('/lessons/'));
   assert(
     staticLessons.length === lessonPages.size,
@@ -965,11 +1092,15 @@ async function checkOffline(base) {
     assert(controlled, 'service worker controls the page after reload');
     const cached = await page.evaluate(async () => {
       const names = await caches.keys();
-      if (!names.length) return 0;
+      if (!names.length) return null;
       const cache = await caches.open(names[0]);
-      return (await cache.keys()).length;
+      return {
+        count: (await cache.keys()).length,
+        offline: Boolean(await cache.match(new URL('/offline.html', location.origin).href))
+      };
     });
-    assert(cached >= 38, `offline shell is cached (${cached} entries)`);
+    assert(cached?.count >= 38, `offline shell is cached (${cached?.count} entries)`);
+    assert(Boolean(cached?.offline), 'offline fallback page is cached');
   }
 
   const staticContext = await browser.newContext();

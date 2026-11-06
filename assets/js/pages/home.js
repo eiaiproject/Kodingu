@@ -2,6 +2,7 @@ import { courses } from '../data/course-index.js';
 import {
   buildPreviewDocument,
   escapeHtml,
+  getResumeTarget,
   icon,
   initChrome,
   pluralize,
@@ -22,6 +23,19 @@ function renderHeroNote() {
   });
   const list = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' });
   note.textContent = `${list.format(counts)} are open now.`;
+}
+
+function renderHeroCta() {
+  const link = document.querySelector('#hero-cta');
+  const label = document.querySelector('#hero-cta-label');
+  if (!link || !label) return;
+  const target = getResumeTarget();
+  link.href = target.href;
+  if (target.label === 'Continue') label.textContent = `Continue: ${target.title}`;
+  else if (target.label === 'Review') label.textContent = `Review: ${target.title}`;
+  else if (target.label === 'Browse catalog') label.textContent = 'Browse the catalog';
+  else label.textContent = 'Start the HTML course';
+  link.setAttribute('aria-label', `${target.label}: ${target.title}`);
 }
 
 function renderCourses() {
@@ -73,5 +87,6 @@ function initDemo() {
 
 initChrome();
 renderHeroNote();
+renderHeroCta();
 renderCourses();
 initDemo();
