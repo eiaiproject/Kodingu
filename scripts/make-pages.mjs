@@ -39,6 +39,10 @@ function codeBlock(block) {
         </div>`;
 }
 
+function listMarkup(items) {
+  return items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+}
+
 function renderBlock(block) {
   if (block.type === 'p') return `<p>${escapeHtml(block.text)}</p>`;
   if (block.type === 'h3') return `<h3>${escapeHtml(block.text)}</h3>`;
@@ -46,7 +50,7 @@ function renderBlock(block) {
     return `<aside class="note"><span class="note-label">Note</span><p>${escapeHtml(block.text)}</p></aside>`;
   }
   if (block.type === 'list') {
-    return `<ul>${block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+    return `<ul>${listMarkup(block.items)}</ul>`;
   }
   if (block.type === 'code') return codeBlock(block);
   return '';
@@ -146,6 +150,7 @@ function renderLessonPage({ course, module, lesson, index, lessons }) {
       url: `${ORIGIN}/`
     }
   };
+  const structuredJson = JSON.stringify(structuredData).replaceAll('<', String.raw`\u003c`);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -178,7 +183,7 @@ function renderLessonPage({ course, module, lesson, index, lessons }) {
   <link rel="stylesheet" href="../assets/css/base.css">
   <link rel="stylesheet" href="../assets/css/app.css">
   <link rel="stylesheet" href="../assets/css/static.css">
-  <script type="application/ld+json">${JSON.stringify(structuredData).replaceAll('<', '\\u003c')}</script>
+  <script type="application/ld+json">${structuredJson}</script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>${headerMarkup()}
@@ -265,51 +270,59 @@ export function buildLessonPages() {
   return pages;
 }
 
+async function checkLessonPages(pages) {
+  const existing = new Set(await readdir(LESSONS_DIR));
+  const missingOrStale = await Promise.all(
+    [...pages].map(async ([name, html]) => {
+      if (!existing.has(name)) return `missing ${name}`;
+      const current = await readFile(new URL(name, LESSONS_DIR), 'utf8');
+      return current === html ? null : `stale ${name}`;
+    })
+  );
+  const problems = missingOrStale.filter(Boolean);
+  for (const name of existing) {
+    if (name.endsWith('.html') && !pages.has(name)) problems.push(`orphaned ${name}`);
+  }
+  if (problems.length) {
+    console.error(`Lesson pages are out of date (${problems.length}):`);
+    for (const problem of problems.slice(0, 20)) console.error(`  ${problem}`);
+    if (problems.length > 20) console.error(`  and ${problems.length - 20} more`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`Lesson pages are up to date (${pages.size}).`);
+}
+
+async function writeLessonPages(pages) {
+  await Promise.all(
+    [...pages].map(([name, html]) => writeFile(new URL(name, LESSONS_DIR), html))
+  );
+
+  const existing = await readdir(LESSONS_DIR);
+  const removed = await Promise.all(
+    existing
+      .filter((name) => name.endsWith('.html') && !pages.has(name))
+      .map(async (name) => {
+        await unlink(new URL(name, LESSONS_DIR));
+        return name;
+      })
+  );
+
+  console.log(`Wrote ${pages.size} lesson pages to lessons/`);
+  if (removed.length) console.log(`Removed ${removed.length} orphaned page(s).`);
+}
+
 async function run() {
   const check = process.argv.includes('--check');
   const pages = buildLessonPages();
   await mkdir(LESSONS_DIR, { recursive: true });
 
   if (check) {
-    const existing = new Set(await readdir(LESSONS_DIR));
-    const problems = [];
-    for (const [name, html] of pages) {
-      if (!existing.has(name)) {
-        problems.push(`missing ${name}`);
-        continue;
-      }
-      const current = await readFile(new URL(name, LESSONS_DIR), 'utf8');
-      if (current !== html) problems.push(`stale ${name}`);
-    }
-    for (const name of existing) {
-      if (name.endsWith('.html') && !pages.has(name)) problems.push(`orphaned ${name}`);
-    }
-    if (problems.length) {
-      console.error(`Lesson pages are out of date (${problems.length}):`);
-      for (const problem of problems.slice(0, 20)) console.error(`  ${problem}`);
-      if (problems.length > 20) console.error(`  and ${problems.length - 20} more`);
-      process.exitCode = 1;
-      return;
-    }
-    console.log(`Lesson pages are up to date (${pages.size}).`);
+    await checkLessonPages(pages);
     return;
   }
 
-  for (const [name, html] of pages) {
-    await writeFile(new URL(name, LESSONS_DIR), html);
-  }
-
-  const existing = await readdir(LESSONS_DIR);
-  const removed = [];
-  for (const name of existing) {
-    if (name.endsWith('.html') && !pages.has(name)) {
-      await unlink(new URL(name, LESSONS_DIR));
-      removed.push(name);
-    }
-  }
-
-  console.log(`Wrote ${pages.size} lesson pages to lessons/`);
-  if (removed.length) console.log(`Removed ${removed.length} orphaned page(s).`);
+  await writeLessonPages(pages);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {

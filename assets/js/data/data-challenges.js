@@ -6,11 +6,9 @@ function courseLessonCount(courseId) {
   return course ? course.modules.reduce((total, module) => total + module.lessons.length, 0) : 0;
 }
 
-const courseCounts = {
-  html: courseLessonCount('html'),
-  css: courseLessonCount('css'),
-  js: courseLessonCount('js')
-};
+const htmlCount = courseLessonCount('html');
+const cssCount = courseLessonCount('css');
+const jsCount = courseLessonCount('js');
 
 const ticketPreview = `<article class="ticket">
   <div>
@@ -110,14 +108,14 @@ export const extraChallenges = [
     summary: 'Turn three real course counts into a table with a caption and row headers.',
     objective: 'Build an accessible table with a caption, column headers, and row headers.',
     prompt:
-      `Build a table titled "Lessons by course". The columns are Course and Lessons. Add three rows: HTML with ${courseCounts.html}, CSS with ${courseCounts.css}, and JavaScript with ${courseCounts.js}. Use scope on the headers.`,
+      `Build a table titled "Lessons by course". The columns are Course and Lessons. Add three rows: HTML with ${htmlCount}, CSS with ${cssCount}, and JavaScript with ${jsCount}. Use scope on the headers.`,
     requirements: [
       'Use one table element.',
       'Add a caption that says "Lessons by course".',
       'Add two column headers with scope="col": "Course" and "Lessons".',
       'Add three body rows.',
       'Use row headers with scope="row" for HTML, CSS, and JavaScript.',
-      `The lesson counts are ${courseCounts.html}, ${courseCounts.css}, and ${courseCounts.js}.`
+      `The lesson counts are ${htmlCount}, ${cssCount}, and ${jsCount}.`
     ],
     starter: `<table>\n</table>\n`,
     solution: `<table>
@@ -129,9 +127,9 @@ export const extraChallenges = [
     </tr>
   </thead>
   <tbody>
-    <tr><th scope="row">HTML</th><td>${courseCounts.html}</td></tr>
-    <tr><th scope="row">CSS</th><td>${courseCounts.css}</td></tr>
-    <tr><th scope="row">JavaScript</th><td>${courseCounts.js}</td></tr>
+    <tr><th scope="row">HTML</th><td>${htmlCount}</td></tr>
+    <tr><th scope="row">CSS</th><td>${cssCount}</td></tr>
+    <tr><th scope="row">JavaScript</th><td>${jsCount}</td></tr>
   </tbody>
 </table>`,
     hint: 'A caption belongs directly inside the table. Scope tells a screen reader whether a header names a column or a row.',
@@ -163,10 +161,10 @@ export const extraChallenges = [
         }
       },
       {
-        label: `The lesson counts are ${courseCounts.html}, ${courseCounts.css}, and ${courseCounts.js}.`,
+        label: `The lesson counts are ${htmlCount}, ${cssCount}, and ${jsCount}.`,
         run: ({ doc }) => {
           const counts = textsOf(doc, 'tbody td');
-          return counts.join('|') === `${courseCounts.html}|${courseCounts.css}|${courseCounts.js}`;
+          return counts.join('|') === `${htmlCount}|${cssCount}|${jsCount}`;
         }
       }
     ]

@@ -54,10 +54,11 @@
         <div class="data-actions">
           <button class="button button-secondary button-small" id="export-progress" type="button">Export JSON</button>
           <button class="button button-secondary button-small" id="import-progress" type="button">Import JSON</button>
+          <label class="sr-only" for="import-file">Import progress JSON</label>
           <input id="import-file" type="file" accept="application/json,.json" hidden>
           <button class="button button-secondary button-small" id="reset-progress" type="button">Reset progress</button>
         </div>
-        <p class="data-status" id="data-status" role="status"></p>
+        <output class="data-status" id="data-status" aria-live="polite"></output>
       </div>
     </div>
   </main>

@@ -1,6 +1,5 @@
 import {
   challenge,
-  check,
   code,
   lesson,
   lessonModule,

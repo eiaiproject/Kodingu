@@ -102,8 +102,10 @@ export const count = (label, selector, expected) =>
     ({ doc }) => doc.querySelectorAll(selector).length === expected,
     `({ doc }) => doc.querySelectorAll(${JSON.stringify(selector)}).length === ${expected}`
   );
-const cssSource = (helper, selector, property, expected, media) =>
-  `({ css: source }) => ${helper}(source, ${JSON.stringify(selector)}, ${JSON.stringify(property)}, ${JSON.stringify(expected)}${media === undefined ? '' : `, ${JSON.stringify(media)}`})`;
+const cssSource = (helper, selector, property, expected, media) => {
+  const mediaArgument = media === undefined ? '' : `, ${JSON.stringify(media)}`;
+  return `({ css: source }) => ${helper}(source, ${JSON.stringify(selector)}, ${JSON.stringify(property)}, ${JSON.stringify(expected)}${mediaArgument})`;
+};
 
 export const css = (label, selector, property, expected, media) =>
   makeTest(

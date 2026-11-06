@@ -235,18 +235,21 @@ function checkChallenges() {
 async function checkLessonDataModules() {
   const modules = buildLessonData();
   const existing = new Set(await readdir(new URL('../assets/js/data/lessons/', import.meta.url)));
-  const problems = [];
-
-  for (const [name, source] of modules) {
-    let current = '';
-    try {
-      current = await readFile(new URL(`../assets/js/data/lessons/${name}`, import.meta.url), 'utf8');
-    } catch (error) {
-      problems.push(`missing ${name}`);
-      continue;
-    }
-    if (current !== source) problems.push(`stale ${name}`);
-  }
+  const problems = (
+    await Promise.all(
+      [...modules].map(async ([name, source]) => {
+        try {
+          const current = await readFile(
+            new URL(`../assets/js/data/lessons/${name}`, import.meta.url),
+            'utf8'
+          );
+          return current === source ? null : `stale ${name}`;
+        } catch {
+          return `missing ${name}`;
+        }
+      })
+    )
+  ).filter(Boolean);
 
   for (const name of existing) {
     if (name.endsWith('.js') && !modules.has(name)) problems.push(`orphaned ${name}`);
@@ -607,21 +610,26 @@ async function runUnitChecks(page, base) {
   await page.evaluate(() => localStorage.removeItem('kodingu.progress.v1'));
 }
 
+async function checkCoursePage(page, base, course) {
+  const response = await page.goto(`${base}/course.html?course=${course.id}`, {
+    waitUntil: 'domcontentloaded'
+  });
+  await page.waitForSelector('.course-title', { timeout: 10000 });
+  const heading = (await page.textContent('.course-title'))?.replace(/\s+/g, ' ').trim() || '';
+  const rows = await page.$$eval('.lesson-row', (nodes) => nodes.length);
+  const expectedRows = getAllLessons(course).length;
+  assert(
+    response?.status() === 200 && heading === course.title && rows === expectedRows,
+    `course ${course.id}: heading and ${expectedRows} lesson rows render`,
+    `status ${response?.status()}, heading "${heading}", rows ${rows}`
+  );
+}
+
 async function checkCoursePages(page, base) {
-  for (const course of courses) {
-    const response = await page.goto(`${base}/course.html?course=${course.id}`, {
-      waitUntil: 'domcontentloaded'
-    });
-    await page.waitForSelector('.course-title', { timeout: 10000 });
-    const heading = (await page.textContent('.course-title'))?.replace(/\s+/g, ' ').trim() || '';
-    const rows = await page.$$eval('.lesson-row', (nodes) => nodes.length);
-    const expectedRows = getAllLessons(course).length;
-    assert(
-      response?.status() === 200 && heading === course.title && rows === expectedRows,
-      `course ${course.id}: heading and ${expectedRows} lesson rows render`,
-      `status ${response?.status()}, heading "${heading}", rows ${rows}`
-    );
-  }
+  await courses.reduce(
+    (previous, course) => previous.then(() => checkCoursePage(page, base, course)),
+    Promise.resolve()
+  );
 
   const response = await page.goto(`${base}/course.html?course=missing`, {
     waitUntil: 'domcontentloaded'
@@ -846,17 +854,18 @@ async function checkSeo(base) {
   assert(notFound.includes('noindex'), '404.html asks search engines not to index it');
 
   const lessonPages = buildLessonPages();
-  const stalePages = [];
-  for (const [name, expected] of lessonPages) {
-    let actual = '';
-    try {
-      actual = await readFile(new URL(`../lessons/${name}`, import.meta.url), 'utf8');
-    } catch (error) {
-      stalePages.push(`missing ${name}`);
-      continue;
-    }
-    if (actual !== expected) stalePages.push(`stale ${name}`);
-  }
+  const stalePages = (
+    await Promise.all(
+      [...lessonPages].map(async ([name, expected]) => {
+        try {
+          const actual = await readFile(new URL(`../lessons/${name}`, import.meta.url), 'utf8');
+          return actual === expected ? null : `stale ${name}`;
+        } catch {
+          return `missing ${name}`;
+        }
+      })
+    )
+  ).filter(Boolean);
   assert(
     !stalePages.length,
     `all ${lessonPages.size} static lesson pages match the generator`,
@@ -998,7 +1007,8 @@ async function checkOffline(base) {
       const response = await staticPage.reload({ waitUntil: 'domcontentloaded' });
       status = response?.status() || 0;
       heading = (await staticPage.textContent('h1'))?.replace(/\s+/g, ' ').trim() || '';
-    } catch (error) {
+    } catch {
+      // A failed offline reload is reported by the status assertion below.
       status = 0;
     }
     assert(
@@ -1047,7 +1057,8 @@ async function checkOffline(base) {
       const response = await lessonPage.reload({ waitUntil: 'domcontentloaded' });
       status = response?.status() || 0;
       heading = (await lessonPage.textContent('#lesson-title'))?.replace(/\s+/g, ' ').trim() || '';
-    } catch (error) {
+    } catch {
+      // A failed offline reload is reported by the status assertion below.
       status = 0;
     }
     assert(

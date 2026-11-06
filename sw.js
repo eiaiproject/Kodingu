@@ -67,8 +67,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+  if (event.origin !== self.location.origin) return;
   const data = event.data;
-  if (!data || data.type !== 'cache-page' || typeof data.url !== 'string') return;
+  if (data?.type !== 'cache-page' || typeof data.url !== 'string') return;
   const url = new URL(data.url);
   if (url.origin !== self.location.origin) return;
   event.waitUntil(

@@ -16,7 +16,7 @@ const latinBlocks = [...css.matchAll(/\/\* latin \*\/\s*@font-face\s*\{([^}]+)\}
     family: /font-family:\s*'([^']+)'/.exec(body)?.[1],
     weight: Number(/font-weight:\s*(\d+)/.exec(body)?.[1]),
     url: /url\((https:[^)]+)\)/.exec(body)?.[1],
-    unicodeRange: /unicode-range:\s*([^;]+);/.exec(body)?.[1]?.trim()
+    unicodeRange: body.split('unicode-range:')[1]?.split(';')[0]?.trim()
   })
 );
 
@@ -38,28 +38,29 @@ const slug = (value) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
-const rules = [];
-for (const [family, faces] of families) {
-  const ordered = [...faces.entries()].sort((a, b) => Math.min(...a[1].weights) - Math.min(...b[1].weights));
-  for (const [url, face] of ordered) {
-    const weights = [...new Set(face.weights)].sort((a, b) => a - b);
-    const range = weights.length > 1 ? `${weights[0]} ${weights.at(-1)}` : String(weights[0]);
-    const name =
-      weights.length > 1 ? `${slug(family)}.woff2` : `${slug(family)}-${weights[0]}.woff2`;
-    const font = await fetch(url, { headers: { 'user-agent': USER_AGENT } });
-    if (!font.ok) throw new Error(`${family} ${range} returned ${font.status}`);
-    await writeFile(new URL(name, FONT_DIR), Buffer.from(await font.arrayBuffer()));
-    rules.push(`@font-face {
+const rules = await Promise.all(
+  [...families].flatMap(([family, faces]) => {
+    const ordered = [...faces.entries()].sort((a, b) => Math.min(...a[1].weights) - Math.min(...b[1].weights));
+    return ordered.map(async ([url, face]) => {
+      const weights = [...new Set(face.weights)].sort((a, b) => a - b);
+      const range = weights.length > 1 ? `${weights[0]} ${weights.at(-1)}` : String(weights[0]);
+      const name =
+        weights.length > 1 ? `${slug(family)}.woff2` : `${slug(family)}-${weights[0]}.woff2`;
+      const font = await fetch(url, { headers: { 'user-agent': USER_AGENT } });
+      if (!font.ok) throw new Error(`${family} ${range} returned ${font.status}`);
+      await writeFile(new URL(name, FONT_DIR), Buffer.from(await font.arrayBuffer()));
+      console.log(`${name}  ${family} ${range}`);
+      return `@font-face {
   font-family: '${family}';
   font-style: normal;
   font-weight: ${range};
   font-display: swap;
   src: url('../fonts/${name}') format('woff2');
   unicode-range: ${face.unicodeRange};
-}`);
-    console.log(`${name}  ${family} ${range}`);
-  }
-}
+}`;
+    });
+  })
+);
 
 await writeFile(
   CSS_FILE,

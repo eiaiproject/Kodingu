@@ -70,18 +70,19 @@ export async function writeLessonModules() {
   const modules = buildLessonData();
   await mkdir(LESSON_DATA_DIR, { recursive: true });
 
-  for (const [name, source] of modules) {
-    await writeFile(new URL(name, LESSON_DATA_DIR), source);
-  }
+  await Promise.all(
+    [...modules].map(([name, source]) => writeFile(new URL(name, LESSON_DATA_DIR), source))
+  );
 
   const existing = await readdir(LESSON_DATA_DIR);
-  const removed = [];
-  for (const name of existing) {
-    if (name.endsWith('.js') && !modules.has(name)) {
-      await unlink(new URL(name, LESSON_DATA_DIR));
-      removed.push(name);
-    }
-  }
+  const removed = await Promise.all(
+    existing
+      .filter((name) => name.endsWith('.js') && !modules.has(name))
+      .map(async (name) => {
+        await unlink(new URL(name, LESSON_DATA_DIR));
+        return name;
+      })
+  );
 
   console.log(`Wrote ${modules.size} lesson data modules to assets/js/data/lessons/`);
   if (removed.length) console.log(`Removed ${removed.length} orphaned lesson data module(s).`);
@@ -91,18 +92,18 @@ export async function writeLessonModules() {
 async function checkLessonModules() {
   const modules = buildLessonData();
   const existing = new Set(await readdir(LESSON_DATA_DIR));
-  const problems = [];
-
-  for (const [name, source] of modules) {
-    let current = '';
-    try {
-      current = await readFile(new URL(name, LESSON_DATA_DIR), 'utf8');
-    } catch (error) {
-      problems.push(`missing ${name}`);
-      continue;
-    }
-    if (current !== source) problems.push(`stale ${name}`);
-  }
+  const problems = (
+    await Promise.all(
+      [...modules].map(async ([name, source]) => {
+        try {
+          const current = await readFile(new URL(name, LESSON_DATA_DIR), 'utf8');
+          return current === source ? null : `stale ${name}`;
+        } catch {
+          return `missing ${name}`;
+        }
+      })
+    )
+  ).filter(Boolean);
 
   for (const name of existing) {
     if (name.endsWith('.js') && !modules.has(name)) problems.push(`orphaned ${name}`);
