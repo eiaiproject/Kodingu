@@ -102,7 +102,20 @@ export const count = (label, selector, expected) =>
     ({ doc }) => doc.querySelectorAll(selector).length === expected,
     `({ doc }) => doc.querySelectorAll(${JSON.stringify(selector)}).length === ${expected}`
   );
+const cssSource = (helper, selector, property, expected, media) => {
+  const mediaArgument = media === undefined ? '' : `, ${JSON.stringify(media)}`;
+  return `({ css: source }) => ${helper}(source, ${JSON.stringify(selector)}, ${JSON.stringify(property)}, ${JSON.stringify(expected)}${mediaArgument})`;
+};
+
 export const css = (label, selector, property, expected, media) =>
-  makeTest(label, ({ css: source }) => cssHasRule(source, selector, property, expected, media));
+  makeTest(
+    label,
+    ({ css: source }) => cssHasRule(source, selector, property, expected, media),
+    cssSource('cssHas', selector, property, expected, media)
+  );
 export const cssIncludes = (label, selector, property, expected) =>
-  makeTest(label, ({ css: source }) => cssIncludesRule(source, selector, property, expected));
+  makeTest(
+    label,
+    ({ css: source }) => cssIncludesRule(source, selector, property, expected),
+    cssSource('cssIncludes', selector, property, expected)
+  );

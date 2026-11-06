@@ -1,5 +1,6 @@
 import { getCourse, getAllLessons } from '../data/course-index.js';
 import {
+  CERTIFICATE_NAME_KEY,
   escapeHtml,
   formatFullDate,
   getCourseStats,
@@ -12,7 +13,6 @@ import {
   setSocialMeta
 } from '../core/app.js';
 
-const NAME_KEY = 'kodingu.certificate.name';
 const params = new URLSearchParams(window.location.search);
 const course = getCourse(params.get('course'));
 const main = document.querySelector('#certificate-main');
@@ -20,7 +20,7 @@ const pageHeading = document.querySelector('.page-head h1');
 
 function readName() {
   try {
-    return (localStorage.getItem(NAME_KEY) || '').slice(0, 60);
+    return (localStorage.getItem(CERTIFICATE_NAME_KEY) || '').slice(0, 60);
   } catch (error) {
     return '';
   }
@@ -28,7 +28,7 @@ function readName() {
 
 function saveName(name) {
   try {
-    localStorage.setItem(NAME_KEY, name);
+    localStorage.setItem(CERTIFICATE_NAME_KEY, name);
   } catch (error) {
     // The name still appears on this page view when storage is unavailable.
   }

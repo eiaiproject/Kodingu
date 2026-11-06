@@ -14,6 +14,11 @@ import {
 const STORAGE_KEY = 'kodingu.progress.v1';
 const THEME_KEY = 'kodingu.theme';
 
+export const PROGRESS_FORMAT = 'kodingu-progress';
+export const PROGRESS_VERSION = 1;
+export const MAX_IMPORT_BYTES = 1024 * 1024;
+export const CERTIFICATE_NAME_KEY = 'kodingu.certificate.name';
+
 let storageOk;
 let memoryProgress = null;
 let toastTimer = null;
@@ -95,6 +100,8 @@ const finiteNumber = (value, fallback = 0) => {
   return Number.isFinite(number) ? number : fallback;
 };
 
+const nonNegative = (value, fallback = 0) => Math.max(0, finiteNumber(value, fallback));
+
 function normalizeProgress(parsed) {
   const data = objectOrEmpty(parsed);
   const completed = objectOrEmpty(data.completed);
@@ -111,20 +118,45 @@ function normalizeProgress(parsed) {
     completedChallenges,
     completedProjects,
     projectChecks: objectOrEmpty(data.projectChecks),
-    xp: finiteNumber(data.xp),
+    xp: nonNegative(data.xp),
     tokens: data.tokens === undefined || data.tokens === null
       ? fallbackTokens
-      : finiteNumber(data.tokens, fallbackTokens),
-    streakFreezes: finiteNumber(data.streakFreezes),
-    chestsOpened: finiteNumber(data.chestsOpened),
-    streak: finiteNumber(data.streak),
+      : nonNegative(data.tokens, fallbackTokens),
+    streakFreezes: nonNegative(data.streakFreezes),
+    chestsOpened: nonNegative(data.chestsOpened),
+    streak: nonNegative(data.streak),
     lastLessonDay: typeof data.lastLessonDay === 'string' ? data.lastLessonDay : null,
     quizzes: objectOrEmpty(data.quizzes),
     history: Array.isArray(data.history) ? data.history : [],
     missions: objectOrEmpty(data.missions),
     activity: Array.isArray(data.activity) ? data.activity : [],
-    solutionViews: Array.isArray(data.solutionViews) ? data.solutionViews : []
+    solutionViews: Array.isArray(data.solutionViews) ? data.solutionViews : [],
+    version: PROGRESS_VERSION
   };
+}
+
+const PROGRESS_MIGRATIONS = {
+  0: (data) => ({ ...data, version: 1 }),
+  1: (data) => data
+};
+
+export function migrateProgress(parsed, { strict = false } = {}) {
+  let data = objectOrEmpty(parsed);
+  let version = Number(data.version);
+  if (!Number.isInteger(version) || version < 0) version = 0;
+  if (version > PROGRESS_VERSION) {
+    if (strict) {
+      throw new Error(`This file uses progress version ${version}. This site supports version ${PROGRESS_VERSION}.`);
+    }
+    return normalizeProgress({ ...data, version: PROGRESS_VERSION });
+  }
+  while (version < PROGRESS_VERSION) {
+    const migrate = PROGRESS_MIGRATIONS[version];
+    if (!migrate) throw new Error(`No migration path from progress version ${version}.`);
+    data = migrate(data);
+    version += 1;
+  }
+  return normalizeProgress({ ...data, version: PROGRESS_VERSION });
 }
 
 export function getProgress() {
@@ -135,7 +167,7 @@ export function getProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultProgress();
-    return normalizeProgress(JSON.parse(raw));
+    return migrateProgress(JSON.parse(raw));
   } catch (error) {
     // Corrupt or unavailable storage starts a fresh local profile.
     console.warn('Kodingu: saved progress could not be read.', error);
@@ -170,6 +202,52 @@ export function resetProgress() {
   }
   memoryProgress = defaultProgress();
   window.dispatchEvent(new CustomEvent('kodingu:progress', { detail: memoryProgress }));
+}
+
+export function createProgressExport() {
+  let certificateName = '';
+  try {
+    certificateName = (localStorage.getItem(CERTIFICATE_NAME_KEY) || '').slice(0, 60);
+  } catch (error) {
+    // A blocked store still exports the in-memory progress.
+  }
+  return {
+    format: PROGRESS_FORMAT,
+    version: PROGRESS_VERSION,
+    exportedAt: new Date().toISOString(),
+    progress: getProgress(),
+    profile: { certificateName }
+  };
+}
+
+export function importProgressPayload(payload) {
+  if (!payload || typeof payload !== 'object' || payload.format !== PROGRESS_FORMAT) {
+    throw new Error('This file is not a Kodingu progress export.');
+  }
+  if (!Number.isInteger(payload.version) || payload.version < 1) {
+    throw new Error('This export does not include a valid progress version.');
+  }
+  if (!payload.progress || typeof payload.progress !== 'object') {
+    throw new Error('This export does not include progress data.');
+  }
+
+  const progress = migrateProgress(
+    { ...payload.progress, version: payload.version },
+    { strict: true }
+  );
+  const profile = objectOrEmpty(payload.profile);
+  const certificateName = typeof profile.certificateName === 'string'
+    ? profile.certificateName.trim().slice(0, 60)
+    : '';
+  if (certificateName && storageAvailable()) {
+    try {
+      localStorage.setItem(CERTIFICATE_NAME_KEY, certificateName);
+    } catch (error) {
+      // The progress import still succeeds when the name cannot be stored.
+    }
+  }
+  saveProgress(progress);
+  return progress;
 }
 
 export function dayKey(date = new Date()) {
@@ -792,23 +870,10 @@ export function renderFooter() {
   `;
 }
 
-function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
-  const local = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  if (window.location.protocol !== 'https:' && !local) return;
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch((error) => {
-      // Offline support is optional; the site works without the worker.
-      console.warn('Kodingu: the offline worker did not register.', error);
-    });
-  });
-}
-
 export function initChrome() {
   renderHeader();
   renderFooter();
   hydrateIcons();
-  registerServiceWorker();
 }
 
 export function wireSidebar(root) {

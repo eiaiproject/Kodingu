@@ -108,6 +108,7 @@ export function mountWorkspace(options) {
   const state = { testsPassed: false };
   let lastCheckedValue = null;
   let checkSequence = 0;
+  let checking = false;
   let saveTimer;
   const { runPreview } = createPreviewRunner({
     editor,
@@ -134,28 +135,50 @@ export function mountWorkspace(options) {
     }
   };
 
+  const setCheckPending = (pending) => {
+    if (checkButton) {
+      checkButton.disabled = pending;
+      if (pending) checkButton.setAttribute('aria-busy', 'true');
+      else checkButton.removeAttribute('aria-busy');
+    }
+    if (runButton) runButton.disabled = pending;
+    const summary = document.querySelector('#checks-summary');
+    if (summary && pending) summary.textContent = 'Checking...';
+  };
+
   const checkCode = async () => {
-    if (!editor) return [];
+    if (!editor || checking) return [];
+    checking = true;
     const value = editor.value;
     const request = ++checkSequence;
     beforeCheck?.();
-    const { error, results } = await runChecks({ language, preview, tests, raw: value });
-    // A result is stale if the editor changed or a newer check started.
-    if (request !== checkSequence || editor.value !== value) return results;
-    renderScriptError(errorMount, error);
-    lastCheckedValue = value;
-    state.testsPassed = results.length > 0 && results.every(Boolean);
-    renderChecks(results);
-    void runPreview();
-    onCheck?.(results);
-    toast(state.testsPassed ? 'All checks passed.' : 'Some checks need work.');
-    return results;
+    setCheckPending(true);
+    try {
+      const { error, results } = await runChecks({ language, preview, tests, raw: value });
+      // A result is stale if the editor changed or a newer check started.
+      if (request !== checkSequence || editor.value !== value) return results;
+      renderScriptError(errorMount, error);
+      lastCheckedValue = value;
+      state.testsPassed = results.length > 0 && results.every(Boolean);
+      renderChecks(results);
+      void runPreview();
+      onCheck?.(results);
+      toast(state.testsPassed ? 'All checks passed.' : 'Some checks need work.');
+      return results;
+    } finally {
+      if (request === checkSequence) {
+        checking = false;
+        setCheckPending(false);
+      }
+    }
   };
 
   const reset = () => {
     if (!editor) return;
     // Cancel any check that started before the reset.
     checkSequence += 1;
+    checking = false;
+    setCheckPending(false);
     window.clearTimeout(saveTimer);
     editor.value = starter;
     clearDraft();

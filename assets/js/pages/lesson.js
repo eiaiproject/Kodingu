@@ -1,4 +1,4 @@
-import { getAllLessons, getLesson, getNextLesson, getPreviousLesson } from '../data/data.js';
+import { getCourse, getAllLessons } from '../data/course-index.js';
 import { TOKENS_PER_LESSON } from '../core/gamification.js';
 import {
   completeLesson,
@@ -18,8 +18,54 @@ import {
 } from '../core/app.js';
 import { mountWorkspace, wireCopyCode, wireToggle } from '../editor/workspace.js';
 
+function findLesson(course, lessonId) {
+  for (const module of course?.modules || []) {
+    const lesson = module.lessons.find((item) => item.id === lessonId);
+    if (lesson) return { course, module, lesson };
+  }
+  return null;
+}
+
+function getNextLesson(course, lessonId) {
+  const lessons = getAllLessons(course);
+  const index = lessons.findIndex((lesson) => lesson.id === lessonId);
+  return index >= 0 ? lessons[index + 1] || null : null;
+}
+
+function getPreviousLesson(course, lessonId) {
+  const lessons = getAllLessons(course);
+  const index = lessons.findIndex((lesson) => lesson.id === lessonId);
+  return index > 0 ? lessons[index - 1] : null;
+}
+
+function cacheLessonData(url) {
+  if (!navigator.serviceWorker) return;
+  navigator.serviceWorker.ready
+    .then((registration) => {
+      registration.active?.postMessage({ type: 'cache-page', url: url.href });
+    })
+    .catch((error) => {
+      console.warn('Kodingu: lesson data could not be cached.', error);
+    });
+}
+
 const params = new URLSearchParams(window.location.search);
-const found = getLesson(params.get('course'), params.get('lesson'));
+const courseSummary = getCourse(params.get('course'));
+const lessonSummary = findLesson(courseSummary, params.get('lesson'));
+let found = null;
+if (lessonSummary) {
+  try {
+    const lessonDataUrl = new URL(
+      `../data/lessons/${lessonSummary.lesson.id}.js`,
+      import.meta.url
+    );
+    const data = await import(lessonDataUrl);
+    found = { ...lessonSummary, lesson: data.lesson };
+    cacheLessonData(lessonDataUrl);
+  } catch (error) {
+    console.warn('Kodingu: lesson data could not be loaded.', error);
+  }
+}
 
 function readDraft(lessonId) {
   try {
@@ -153,7 +199,7 @@ function renderMain() {
   const { course, module, lesson } = found;
   const lessons = getAllLessons(course);
   const progress = getProgress();
-  const index = lessons.indexOf(lesson);
+  const index = lessons.findIndex((item) => item.id === lesson.id);
   const previous = getPreviousLesson(course, lesson.id);
   const next = getNextLesson(course, lesson.id);
   const quizDone = Boolean(progress.quizzes[lesson.id]?.correct);
@@ -464,7 +510,7 @@ if (found) {
   setSocialMeta({
     title: found.lesson.title,
     description: found.lesson.objective,
-    path: `/lesson?course=${encodeURIComponent(found.course.id)}&lesson=${encodeURIComponent(found.lesson.id)}`
+    path: `/lessons/${encodeURIComponent(found.lesson.id)}`
   });
   recordActivity('visit', found.lesson.id);
   renderSidebar();

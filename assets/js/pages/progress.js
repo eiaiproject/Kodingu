@@ -2,6 +2,7 @@ import { courses, getAllLessons } from '../data/course-index.js';
 import {
   buyFreezeChest,
   claimDailyMission,
+  createProgressExport,
   currentStreak,
   dayKey,
   escapeHtml,
@@ -12,7 +13,9 @@ import {
   getStreakState,
   getTodayCount,
   icon,
+  importProgressPayload,
   initChrome,
+  MAX_IMPORT_BYTES,
   pluralize,
   progressBar,
   resetProgress,
@@ -325,16 +328,82 @@ function renderAll() {
 function renderDataNote() {
   const note = document.querySelector('#data-note');
   if (!note || storageAvailable()) return;
-  note.innerHTML = `
-    <p><strong>This browser is blocking local storage.</strong> Progress, tokens, and certificates will stay on this page and will be lost when you reload or close it.</p>
-    <button class="button button-secondary button-small" id="reset-progress" type="button">Reset progress</button>
-  `;
+  const message = note.querySelector('p');
+  if (message) {
+    message.innerHTML = '<strong>This browser is blocking local storage.</strong> Progress, tokens, and certificates will stay on this page and will be lost when you reload or close it.';
+  }
+}
+
+function setDataStatus(message, isError = false) {
+  const status = document.querySelector('#data-status');
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle('is-error', isError);
+}
+
+function exportProgress() {
+  const payload = createProgressExport();
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `kodingu-progress-${payload.exportedAt.slice(0, 10)}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setDataStatus('Progress exported. Keep the file somewhere you can find it.');
+}
+
+async function importProgress(file) {
+  if (file.size > MAX_IMPORT_BYTES) {
+    setDataStatus('That file is larger than 1 MB. Choose a Kodingu progress export.', true);
+    return;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(await file.text());
+  } catch (error) {
+    setDataStatus('That file is not valid JSON.', true);
+    return;
+  }
+
+  const current = getProgress();
+  const hasProgress = current.xp > 0 || Object.keys(current.completed).length > 0;
+  if (hasProgress && !window.confirm('Import this file and replace the progress in this browser?')) {
+    setDataStatus('Import cancelled.');
+    return;
+  }
+
+  try {
+    const progress = importProgressPayload(payload);
+    renderAll();
+    resetResetButton();
+    setDataStatus(`Imported ${progress.xp} XP and ${Object.keys(progress.completed).length} finished lessons.`);
+    toast('Progress imported.');
+  } catch (error) {
+    setDataStatus(error.message || 'That file could not be imported.', true);
+    toast('Import failed.');
+  }
 }
 
 setPageTitle('Progress');
 initChrome();
 renderAll();
 renderDataNote();
+
+const exportButton = document.querySelector('#export-progress');
+exportButton?.addEventListener('click', exportProgress);
+
+const importButton = document.querySelector('#import-progress');
+const importFile = document.querySelector('#import-file');
+importButton?.addEventListener('click', () => importFile?.click());
+importFile?.addEventListener('change', () => {
+  const file = importFile.files?.[0];
+  importFile.value = '';
+  if (file) void importProgress(file);
+});
 
 const rewardMount = document.querySelector('#rewards');
 rewardMount?.addEventListener('click', (event) => {
@@ -357,22 +426,24 @@ missionMount?.addEventListener('click', (event) => {
 const resetButton = document.querySelector('#reset-progress');
 let resetTimer;
 
+function resetResetButton() {
+  if (!resetButton) return;
+  window.clearTimeout(resetTimer);
+  resetButton.dataset.confirm = 'false';
+  resetButton.textContent = 'Reset progress';
+}
+
 resetButton?.addEventListener('click', () => {
   if (resetButton.dataset.confirm !== 'true') {
     resetButton.dataset.confirm = 'true';
     resetButton.textContent = 'Click again to reset';
     window.clearTimeout(resetTimer);
-    resetTimer = window.setTimeout(() => {
-      resetButton.dataset.confirm = 'false';
-      resetButton.textContent = 'Reset progress';
-    }, 5000);
+    resetTimer = window.setTimeout(resetResetButton, 5000);
     return;
   }
 
-  window.clearTimeout(resetTimer);
   resetProgress();
   renderAll();
-  resetButton.dataset.confirm = 'false';
-  resetButton.textContent = 'Reset progress';
+  resetResetButton();
   toast('Progress cleared.');
 });

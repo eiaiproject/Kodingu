@@ -1,4 +1,4 @@
-const CACHE = 'kodingu-v6';
+const CACHE = 'kodingu-v10';
 
 const SHELL = [
   'index.html',
@@ -14,27 +14,22 @@ const SHELL = [
   '404.html',
   'favicon.svg',
   'assets/css/base.css',
+  'assets/css/fonts.css',
   'assets/css/app.css',
+  'assets/css/static.css',
+  'assets/fonts/ibm-plex-mono-400.woff2',
+  'assets/fonts/ibm-plex-mono-500.woff2',
+  'assets/fonts/public-sans.woff2',
+  'assets/fonts/shippori-mincho-500.woff2',
+  'assets/fonts/shippori-mincho-600.woff2',
   'assets/js/core/app.js',
   'assets/js/pages/catalog.js',
   'assets/js/pages/certificate.js',
   'assets/js/pages/challenge.js',
   'assets/js/pages/course.js',
   'assets/js/data/course-index.js',
-  'assets/js/data/data.js',
   'assets/js/data/data-challenges.js',
-  'assets/js/data/data-css-layout.js',
-  'assets/js/data/data-css-modern.js',
-  'assets/js/data/data-css.js',
-  'assets/js/data/data-css-components.js',
   'assets/js/data/data-helpers.js',
-  'assets/js/data/data-html-2.js',
-  'assets/js/data/lesson-builder.js',
-  'assets/js/data/data-html-3.js',
-  'assets/js/data/data-html-4.js',
-  'assets/js/data/data-js-data.js',
-  'assets/js/data/data-js.js',
-  'assets/js/data/data-js-modern.js',
   'assets/js/data/data-projects.js',
   'assets/js/core/gamification.js',
   'assets/js/pages/home.js',
@@ -68,6 +63,22 @@ self.addEventListener('activate', (event) => {
         Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
       )
       .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.origin !== self.location.origin) return;
+  const data = event.data;
+  if (data?.type !== 'cache-page' || typeof data.url !== 'string') return;
+  const url = new URL(data.url);
+  if (url.origin !== self.location.origin) return;
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.add(url.href))
+      .catch(() => {
+        // The page is still usable online when its offline copy cannot be stored.
+      })
   );
 });
 

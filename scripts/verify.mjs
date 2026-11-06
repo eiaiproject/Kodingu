@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { startServer } from './dev-server.mjs';
 import { runSeries } from './series.mjs';
@@ -6,6 +6,8 @@ import { courses, getAllLessons } from '../assets/js/data/data.js';
 import { courses as indexCourses } from '../assets/js/data/course-index.js';
 import { projects } from '../assets/js/data/data-projects.js';
 import { extraChallenges } from '../assets/js/data/data-challenges.js';
+import { buildLessonPages, ORIGIN } from './make-pages.mjs';
+import { buildLessonData } from './make-lesson-data.mjs';
 
 const filters = process.argv
   .slice(2)
@@ -54,8 +56,17 @@ const everything = [
 const EXPECTED_TOTALS = {
   html: { lessons: 32, xp: 815 },
   css: { lessons: 19, xp: 490 },
-  js: { lessons: 15, xp: 390 }
+  js: { lessons: 19, xp: 490 }
 };
+
+function heroCountsText() {
+  const counts = courses.map((course) => {
+    const count = getAllLessons(course).length;
+    return `${count} ${course.title} ${count === 1 ? 'lesson' : 'lessons'}`;
+  });
+  const list = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' });
+  return `${list.format(counts)} are open now.`;
+}
 
 function courseIndexShape(list) {
   return list.map((course) => ({
@@ -98,7 +109,7 @@ function checkCatalog() {
     seen.add(item.id);
   }
   assert(!duplicates.length, 'IDs are unique across lessons, projects, and challenges', duplicates.join(', '));
-  assert(lessons.length === 66, `66 lessons in the catalog (found ${lessons.length})`);
+  assert(lessons.length === 70, `70 lessons in the catalog (found ${lessons.length})`);
   assert(projects.length === 4, `4 guided projects (found ${projects.length})`);
   assert(extraChallenges.length === 6, `6 extra challenges (found ${extraChallenges.length})`);
 
@@ -114,7 +125,7 @@ function checkCatalog() {
       expected ? `expected ${expected.lessons} and ${expected.xp}` : 'no expected total'
     );
   }
-  assert(lessonXp === 1695, `lesson XP totals 1695 (found ${lessonXp})`);
+  assert(lessonXp === 1795, `lesson XP totals 1795 (found ${lessonXp})`);
 
   const projectXp = projects.reduce((sum, project) => sum + project.xp, 0);
   const challengeXp = extraChallenges.reduce((sum, challenge) => sum + challenge.xp, 0);
@@ -165,9 +176,9 @@ function checkLessonContent() {
     assert(!problems.length, `${lesson.id} is complete`, problems.join(', '));
     tests += (challenge.tests || []).length;
   }
-  assert(tests === 318, `318 automated checks in lesson content (found ${tests})`);
+  assert(tests === 337, `337 automated checks in lesson content (found ${tests})`);
   const challengeTests = extraChallenges.reduce((sum, challenge) => sum + challenge.tests.length, 0);
-  assert(tests + challengeTests === 352, `352 checks across lessons and challenges (found ${tests + challengeTests})`);
+  assert(tests + challengeTests === 371, `371 checks across lessons and challenges (found ${tests + challengeTests})`);
 }
 
 function checkProjects() {
@@ -199,14 +210,65 @@ function checkChallenges() {
     const problems = challengeProblems(challenge);
     assert(!problems.length, `${challenge.id} is complete`, problems.join(', '));
   }
+
+  const tableChallenge = extraChallenges.find((challenge) => challenge.id === 'extra-html-02');
+  const counts = courses.map((course) => getAllLessons(course).length);
+  const countText = `${counts[0]}, ${counts[1]}, and ${counts[2]}`;
+  assert(
+    tableChallenge?.prompt.includes(`HTML with ${counts[0]}, CSS with ${counts[1]}, and JavaScript with ${counts[2]}`),
+    'extra-html-02: prompt counts match the course data'
+  );
+  assert(
+    tableChallenge?.requirements.includes(`The lesson counts are ${countText}.`),
+    'extra-html-02: requirement counts match the course data'
+  );
+  assert(
+    tableChallenge?.solution.includes(`<td>${counts[2]}</td>`),
+    'extra-html-02: solution counts match the course data'
+  );
+  assert(
+    tableChallenge?.tests.at(-1)?.label === `The lesson counts are ${countText}.`,
+    'extra-html-02: check label matches the course data'
+  );
 }
 
-function checkData() {
+async function checkLessonDataModules() {
+  const modules = buildLessonData();
+  const existing = new Set(await readdir(new URL('../assets/js/data/lessons/', import.meta.url)));
+  const problems = (
+    await Promise.all(
+      [...modules].map(async ([name, source]) => {
+        try {
+          const current = await readFile(
+            new URL(`../assets/js/data/lessons/${name}`, import.meta.url),
+            'utf8'
+          );
+          return current === source ? null : `stale ${name}`;
+        } catch {
+          return `missing ${name}`;
+        }
+      })
+    )
+  ).filter(Boolean);
+
+  for (const name of existing) {
+    if (name.endsWith('.js') && !modules.has(name)) problems.push(`orphaned ${name}`);
+  }
+
+  assert(
+    !problems.length,
+    `all ${modules.size} generated lesson data modules match the data`,
+    problems.slice(0, 5).join(' | ')
+  );
+}
+
+async function checkData() {
   checkCourseIndex();
   checkCatalog();
   checkLessonContent();
   checkProjects();
   checkChallenges();
+  await checkLessonDataModules();
 }
 
 function waitForSummary() {
@@ -242,7 +304,41 @@ async function runLesson(page, base, course, lesson) {
   await openPage(page, base, `/lesson.html?course=${course.id}&lesson=${lesson.id}`);
   await page.waitForSelector('#editor-code', { timeout: 15000 });
   await setEditor(page, '#editor-code', lesson.challenge.solution);
+  if (lesson.id === 'js-01') {
+    await page.evaluate(() => {
+      window.__pendingCheck = null;
+      const summary = document.querySelector('#checks-summary');
+      const button = document.querySelector('#check-code');
+      const capture = () => {
+        if (
+          summary?.textContent.trim() === 'Checking...' &&
+          button?.disabled &&
+          button.getAttribute('aria-busy') === 'true'
+        ) {
+          window.__pendingCheck = {
+            summary: summary.textContent.trim(),
+            disabled: button.disabled,
+            busy: button.getAttribute('aria-busy')
+          };
+          observer.disconnect();
+        }
+      };
+      const observer = new MutationObserver(capture);
+      if (summary) observer.observe(summary, { childList: true, characterData: true, subtree: true });
+      if (button) observer.observe(button, { attributes: true, attributeFilter: ['disabled', 'aria-busy'] });
+      capture();
+    });
+  }
   await page.click('#check-code');
+  if (lesson.id === 'js-01') {
+    await page.waitForFunction(() => window.__pendingCheck, { timeout: 2000 }).catch(() => {});
+    const pending = await page.evaluate(() => window.__pendingCheck);
+    assert(
+      pending?.summary === 'Checking...' && pending?.disabled === true && pending?.busy === 'true',
+      `${lesson.id}: Check shows a busy state while the runner works`,
+      JSON.stringify(pending)
+    );
+  }
   const summary = await page.evaluate(waitForSummary);
   const failedLabels = await page.$$eval('.check-item.is-fail', (nodes) =>
     nodes.map((node) => node.textContent.replace(/\s+/g, ' ').trim())
@@ -399,6 +495,69 @@ async function runUnitChecks(page, base) {
     JSON.stringify(normalized)
   );
 
+  const transfer = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    localStorage.setItem('kodingu.progress.v1', JSON.stringify({ version: 0, xp: '40', completed: {} }));
+    const upgraded = app.getProgress();
+    const imported = app.importProgressPayload({
+      format: 'kodingu-progress',
+      version: 1,
+      progress: {
+        xp: 75,
+        tokens: 10,
+        completed: { 'html-01': { at: new Date().toISOString(), xp: 25 } }
+      },
+      profile: { certificateName: 'Import Tester' }
+    });
+    let futureRejected = false;
+    let formatRejected = false;
+    try {
+      app.importProgressPayload({ format: 'kodingu-progress', version: 99, progress: {} });
+    } catch (error) {
+      futureRejected = true;
+    }
+    try {
+      app.importProgressPayload({ format: 'other', version: 1, progress: {} });
+    } catch (error) {
+      formatRejected = true;
+    }
+    const exported = app.createProgressExport();
+    const result = {
+      upgradedVersion: upgraded.version,
+      upgradedXp: upgraded.xp,
+      importedXp: imported.xp,
+      savedName: localStorage.getItem('kodingu.certificate.name'),
+      exportedVersion: exported.version,
+      exportedXp: exported.progress.xp,
+      exportedName: exported.profile.certificateName,
+      futureRejected,
+      formatRejected
+    };
+    localStorage.removeItem('kodingu.progress.v1');
+    localStorage.removeItem('kodingu.certificate.name');
+    return result;
+  });
+  assert(
+    transfer.upgradedVersion === 1 && transfer.upgradedXp === 40,
+    'progress: unversioned legacy data migrates to version 1',
+    JSON.stringify(transfer)
+  );
+  assert(
+    transfer.importedXp === 75 && transfer.savedName === 'Import Tester',
+    'progress: import restores XP and the certificate name',
+    JSON.stringify(transfer)
+  );
+  assert(
+    transfer.futureRejected && transfer.formatRejected,
+    'progress: import rejects unknown formats and future versions',
+    JSON.stringify(transfer)
+  );
+  assert(
+    transfer.exportedVersion === 1 && transfer.exportedXp === 75 && transfer.exportedName === 'Import Tester',
+    'progress: export includes the schema version, progress, and certificate name',
+    JSON.stringify(transfer)
+  );
+
   await page.evaluate(() => {
     localStorage.setItem('kodingu.progress.v1', JSON.stringify({ xp: 100, streak: 0, tokens: 0 }));
   });
@@ -451,6 +610,62 @@ async function runUnitChecks(page, base) {
   await page.evaluate(() => localStorage.removeItem('kodingu.progress.v1'));
 }
 
+async function checkCoursePage(page, base, course) {
+  const response = await page.goto(`${base}/course.html?course=${course.id}`, {
+    waitUntil: 'domcontentloaded'
+  });
+  await page.waitForSelector('.course-title', { timeout: 10000 });
+  const heading = (await page.textContent('.course-title'))?.replace(/\s+/g, ' ').trim() || '';
+  const rows = await page.$$eval('.lesson-row', (nodes) => nodes.length);
+  const expectedRows = getAllLessons(course).length;
+  assert(
+    response?.status() === 200 && heading === course.title && rows === expectedRows,
+    `course ${course.id}: heading and ${expectedRows} lesson rows render`,
+    `status ${response?.status()}, heading "${heading}", rows ${rows}`
+  );
+}
+
+async function checkCoursePages(page, base) {
+  await courses.reduce(
+    (previous, course) => previous.then(() => checkCoursePage(page, base, course)),
+    Promise.resolve()
+  );
+
+  const response = await page.goto(`${base}/course.html?course=missing`, {
+    waitUntil: 'domcontentloaded'
+  });
+  await page.waitForSelector('.course-title', { timeout: 10000 });
+  const heading = (await page.textContent('.course-title'))?.replace(/\s+/g, ' ').trim() || '';
+  const rows = await page.$$eval('.lesson-row', (nodes) => nodes.length);
+  const message = (await page.textContent('.course-description'))?.replace(/\s+/g, ' ').trim() || '';
+  assert(
+    response?.status() === 200 &&
+      heading === 'Course not found' &&
+      rows === 0 &&
+      message.includes('does not match a course'),
+    'course missing: empty state renders without lesson rows',
+    `status ${response?.status()}, heading "${heading}", rows ${rows}, message "${message}"`
+  );
+}
+
+async function checkSkipLink(page, base, path, name) {
+  await page.goto(`${base}${path}`, { waitUntil: 'load' });
+  await page.keyboard.press('Tab');
+  const focusedSkipLink = await page.evaluate(() =>
+    document.activeElement?.classList.contains('skip-link')
+  );
+  await page.keyboard.press('Enter');
+  await page
+    .waitForFunction(() => document.activeElement?.id === 'main', { timeout: 2000 })
+    .catch(() => {});
+  const activeId = await page.evaluate(() => document.activeElement?.id || '');
+  assert(
+    focusedSkipLink && activeId === 'main',
+    `${name}: skip link moves focus to main`,
+    `skip link focused ${focusedSkipLink}, active element "${activeId}"`
+  );
+}
+
 async function checkPages(page, base) {
   const pages = [
     '/index.html',
@@ -472,6 +687,10 @@ async function checkPages(page, base) {
     );
   });
 
+  await checkCoursePages(page, base);
+  await checkSkipLink(page, base, '/index.html', 'home');
+  await checkSkipLink(page, base, '/lessons/html-01.html', 'static lesson');
+
   await page.goto(`${base}/404.html`, { waitUntil: 'domcontentloaded' });
   const emptyLinks = await page.$$eval('a', (links) =>
     links.filter((link) => !link.textContent.trim() && !link.getAttribute('aria-label')).length
@@ -487,12 +706,15 @@ async function checkPages(page, base) {
   const heroWidth = await page.$eval('h1', (node) => node.getBoundingClientRect().width);
   assert(heroWidth > 200, 'home headline has a real layout box', `${Math.round(heroWidth)}px`);
 
+  const heroNote = (await page.textContent('#hero-counts'))?.replace(/\s+/g, ' ').trim();
+  assert(heroNote === heroCountsText(), 'homepage lesson counts render from course data', heroNote);
+
   await openPage(page, base, '/lesson.html?course=html&lesson=html-01');
   await page.waitForSelector('#editor-code', { timeout: 15000 });
   const canonical = await page.$eval('link[rel="canonical"]', (node) => node.href);
   assert(
-    canonical === 'https://kodingu.pages.dev/lesson?course=html&lesson=html-01',
-    'canonical: runtime metadata keeps the production origin',
+    canonical === 'https://kodingu.pages.dev/lessons/html-01',
+    'canonical: interactive lessons point at the reading page',
     canonical
   );
 }
@@ -504,9 +726,9 @@ async function checkProgressTotals(page, base) {
     nodes.map((node) => Number(node.textContent.trim()))
   );
   const [xp, streak, completedLessons, tokens] = values;
-  assert(xp === 2310, `progress: 2310 XP after all lessons, challenges, and projects (found ${xp})`);
-  assert(completedLessons === 66, `progress: 66 lessons complete (found ${completedLessons})`);
-  assert(tokens === 800, `progress: 800 tokens earned (found ${tokens})`);
+  assert(xp === 2410, `progress: 2410 XP after all lessons, challenges, and projects (found ${xp})`);
+  assert(completedLessons === 70, `progress: 70 lessons complete (found ${completedLessons})`);
+  assert(tokens === 840, `progress: 840 tokens earned (found ${tokens})`);
   assert(streak === 1, `progress: one day streak (found ${streak})`);
 
   const ready = await page.$$eval('.certificate-card.is-ready', (nodes) => nodes.length);
@@ -522,6 +744,47 @@ async function checkProgressTotals(page, base) {
   assert(enabled, 'certificate: unlocks and prints once a name is added');
   const name = await page.textContent('#certificate-name-display');
   assert(name.trim() === 'Test Learner', 'certificate: shows the typed name');
+
+  await openPage(page, base, '/progress.html');
+  await page.waitForSelector('#import-file', { state: 'attached', timeout: 10000 });
+  const payload = {
+    format: 'kodingu-progress',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    progress: {
+      version: 1,
+      xp: 75,
+      tokens: 20,
+      streak: 1,
+      completed: { 'html-01': { at: new Date().toISOString(), xp: 25 } },
+      completedChallenges: {},
+      completedProjects: {},
+      history: []
+    },
+    profile: { certificateName: 'Import Tester' }
+  };
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.setInputFiles('#import-file', {
+    name: 'kodingu-progress.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(payload))
+  });
+  await page.waitForFunction(
+    () => document.querySelector('#data-status')?.textContent.includes('Imported'),
+    { timeout: 5000 }
+  );
+  const importedXp = await page.$eval('.stat-value', (node) => Number(node.textContent.trim()));
+  assert(importedXp === 75, `progress: import file replaces the local profile (found ${importedXp} XP)`);
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.click('#export-progress');
+  const download = await downloadPromise;
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8'));
+  assert(
+    exported.format === 'kodingu-progress' && exported.version === 1 && exported.progress.xp === 75,
+    'progress: export downloads a versioned JSON file',
+    JSON.stringify({ format: exported.format, version: exported.version, xp: exported.progress?.xp })
+  );
 }
 
 async function checkHeaders(base) {
@@ -530,6 +793,8 @@ async function checkHeaders(base) {
   assert(response.status === 200, 'dev server serves lesson.html');
   assert(csp.includes("script-src 'self' blob:"), 'CSP allows same-origin and blob scripts', csp);
   assert(!csp.includes("'unsafe-eval'"), 'CSP no longer allows unsafe-eval', csp);
+  assert(csp.includes("frame-ancestors 'none'"), "CSP blocks framing with frame-ancestors 'none'", csp);
+  assert(csp.includes("object-src 'none'"), "CSP blocks plugins with object-src 'none'", csp);
   assert(response.headers.get('x-content-type-options') === 'nosniff', 'X-Content-Type-Options is applied');
   assert(response.headers.get('x-frame-options') === 'DENY', 'X-Frame-Options is applied');
 
@@ -572,10 +837,68 @@ async function checkSeo(base) {
     if (file !== '404.html') required.push('rel="canonical"');
     const missing = required.filter((needle) => !html.includes(needle));
     assert(!missing.length, `${file}: description, social, and canonical tags`, missing.join(', '));
+    assert(
+      !html.includes('fonts.googleapis.com') && html.includes('assets/css/fonts.css'),
+      `${file}: fonts are self-hosted`
+    );
   });
+
+  const home = await (await fetch(`${base}/index.html`)).text();
+  assert(
+    home.includes(heroCountsText()),
+    'homepage lesson counts match the data without JavaScript',
+    heroCountsText()
+  );
 
   const notFound = await (await fetch(`${base}/404.html`)).text();
   assert(notFound.includes('noindex'), '404.html asks search engines not to index it');
+
+  const lessonPages = buildLessonPages();
+  const stalePages = (
+    await Promise.all(
+      [...lessonPages].map(async ([name, expected]) => {
+        try {
+          const actual = await readFile(new URL(`../lessons/${name}`, import.meta.url), 'utf8');
+          return actual === expected ? null : `stale ${name}`;
+        } catch {
+          return `missing ${name}`;
+        }
+      })
+    )
+  ).filter(Boolean);
+  assert(
+    !stalePages.length,
+    `all ${lessonPages.size} static lesson pages match the generator`,
+    stalePages.slice(0, 5).join(' | ')
+  );
+
+  const sampleLesson = await (await fetch(`${base}/lessons/html-01`)).text();
+  assert(
+    sampleLesson.includes(`<link rel="canonical" href="${ORIGIN}/lessons/html-01">`),
+    'static lesson: canonical points at the reading page'
+  );
+  assert(
+    sampleLesson.includes('<h1>A page is a tree</h1>') &&
+      sampleLesson.includes('HTML gives a page its structure.'),
+    'static lesson: the heading and theory are present without JavaScript'
+  );
+  assert(
+    !sampleLesson.includes('type="module"') && sampleLesson.includes('assets/css/static.css'),
+    'static lesson: reading content needs no module script'
+  );
+  assert(
+    sampleLesson.includes('lesson.html?course=html&amp;lesson=html-01'),
+    'static lesson: links to the interactive workspace'
+  );
+  const lessonLd = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(sampleLesson);
+  let lessonLdValid = false;
+  try {
+    JSON.parse(lessonLd[1]);
+    lessonLdValid = true;
+  } catch {
+    lessonLdValid = false;
+  }
+  assert(lessonLdValid, 'static lesson: JSON-LD parses');
 
   const png = await readFile(new URL('../assets/og-image.png', import.meta.url));
   const width = png.readUInt32BE(16);
@@ -598,7 +921,16 @@ async function checkSeo(base) {
 
   const sitemap = await (await fetch(`${base}/sitemap.xml`)).text();
   const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-  assert(locations.length === 84, `sitemap lists 84 URLs (found ${locations.length})`);
+  assert(locations.length === 88, `sitemap lists 88 URLs (found ${locations.length})`);
+  const staticLessons = locations.filter((location) => location.includes('/lessons/'));
+  assert(
+    staticLessons.length === lessonPages.size,
+    `sitemap lists all ${lessonPages.size} static lessons (found ${staticLessons.length})`
+  );
+  assert(
+    !sitemap.includes('/lesson?course='),
+    'sitemap lists reading pages instead of lesson query URLs'
+  );
 
   const robots = await (await fetch(`${base}/robots.txt`)).text();
   assert(robots.includes('sitemap.xml'), 'robots.txt points at the sitemap');
@@ -639,11 +971,109 @@ async function checkOffline(base) {
     });
     assert(cached >= 38, `offline shell is cached (${cached} entries)`);
   }
+
+  const staticContext = await browser.newContext();
+  const staticPage = await staticContext.newPage();
+  await staticPage.goto(`${base}/lessons/html-01.html`, { waitUntil: 'load' });
+  const staticRegistered = await staticPage.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) return false;
+    const registration = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(() => resolve(null), 8000))
+    ]);
+    return Boolean(registration);
+  });
+  assert(staticRegistered, 'service worker registers from a static reading page');
+
+  if (staticRegistered) {
+    const pageCached = await staticPage
+      .waitForFunction(
+        async () => {
+          const names = await caches.keys();
+          if (!names.length) return false;
+          const cache = await caches.open(names[0]);
+          return Boolean(await cache.match(window.location.href));
+        },
+        { timeout: 5000 }
+      )
+      .then(() => true)
+      .catch(() => false);
+    assert(pageCached, 'first visit from a static reading page is cached');
+
+    await staticContext.setOffline(true);
+    let status = 0;
+    let heading = '';
+    try {
+      const response = await staticPage.reload({ waitUntil: 'domcontentloaded' });
+      status = response?.status() || 0;
+      heading = (await staticPage.textContent('h1'))?.replace(/\s+/g, ' ').trim() || '';
+    } catch {
+      // A failed offline reload is reported by the status assertion below.
+      status = 0;
+    }
+    assert(
+      status === 200 && heading === 'A page is a tree',
+      'static reading page reloads offline from its first visit',
+      `status ${status}, heading "${heading}"`
+    );
+  }
+
+  await staticContext.close();
+
+  const lessonContext = await browser.newContext();
+  const lessonPage = await lessonContext.newPage();
+  await lessonPage.goto(`${base}/lesson.html?course=html&lesson=html-01`, { waitUntil: 'load' });
+  await lessonPage.waitForSelector('#lesson-title', { timeout: 15000 });
+  const lessonRegistered = await lessonPage.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) return false;
+    const registration = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(() => resolve(null), 8000))
+    ]);
+    return Boolean(registration);
+  });
+  assert(lessonRegistered, 'service worker registers from an interactive lesson');
+
+  if (lessonRegistered) {
+    const lessonCached = await lessonPage
+      .waitForFunction(
+        async () => {
+          const names = await caches.keys();
+          if (!names.length) return false;
+          const cache = await caches.open(names[0]);
+          const dataUrl = new URL('/assets/js/data/lessons/html-01.js', location.origin).href;
+          return Boolean(await cache.match(dataUrl)) && Boolean(await cache.match(location.href));
+        },
+        { timeout: 5000 }
+      )
+      .then(() => true)
+      .catch(() => false);
+    assert(lessonCached, 'first interactive lesson visit caches its page and data module');
+
+    await lessonContext.setOffline(true);
+    let status = 0;
+    let heading = '';
+    try {
+      const response = await lessonPage.reload({ waitUntil: 'domcontentloaded' });
+      status = response?.status() || 0;
+      heading = (await lessonPage.textContent('#lesson-title'))?.replace(/\s+/g, ' ').trim() || '';
+    } catch {
+      // A failed offline reload is reported by the status assertion below.
+      status = 0;
+    }
+    assert(
+      status === 200 && heading === 'A page is a tree',
+      'interactive lesson reloads offline after its first visit',
+      `status ${status}, heading "${heading}"`
+    );
+  }
+
+  await lessonContext.close();
   await browser.close();
 }
 
 async function main() {
-  if (wants('data')) checkData();
+  if (wants('data')) await checkData();
 
   const server = await startServer({ port: 0 });
   console.log(`\nServing ${server.url}`);
@@ -663,9 +1093,6 @@ async function main() {
     serviceWorkers: 'block',
     reducedMotion: 'reduce'
   });
-  await context.route(/fonts\.(googleapis|gstatic)\.com/, (route) =>
-    route.fulfill({ status: 200, contentType: 'text/css', body: '' })
-  );
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));

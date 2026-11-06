@@ -14,7 +14,7 @@ ${body}
   </body>
 </html>`;
 
-export const htmlModulesPhase2 = [
+export const htmlModulesContent = [
   {
     id: 'html-m2',
     title: 'Content with meaning',

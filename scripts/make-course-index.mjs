@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { courses } from '../assets/js/data/data.js';
+import { writeLessonModules } from './make-lesson-data.mjs';
 
 const summary = courses.map((course) => ({
   id: course.id,
@@ -42,3 +43,4 @@ const lessonCount = summary.reduce(
   0
 );
 console.log(`Wrote ${summary.length} courses and ${lessonCount} lesson summaries to course-index.js`);
+await writeLessonModules();

@@ -93,6 +93,45 @@
     });
   };
 
+  // Sandboxed previews have an opaque origin, so the real localStorage throws.
+  // A memory store lets storage lessons run without weakening the sandbox.
+  const installStorage = () => {
+    try {
+      window.localStorage.getItem('kodingu.storage.check');
+      return;
+    } catch (error) {
+      // Fall through to the temporary store.
+    }
+    const values = new Map();
+    const storage = {
+      getItem(key) {
+        const value = values.get(String(key));
+        return value === undefined ? null : value;
+      },
+      setItem(key, value) {
+        values.set(String(key), String(value));
+      },
+      removeItem(key) {
+        values.delete(String(key));
+      },
+      clear() {
+        values.clear();
+      },
+      key(index) {
+        return Array.from(values.keys())[Number(index)] ?? null;
+      },
+      get length() {
+        return values.size;
+      }
+    };
+    try {
+      Object.defineProperty(window, 'localStorage', { configurable: true, value: storage });
+    } catch (error) {
+      // Storage calls will report the original browser error if this fails.
+    }
+  };
+
+  installStorage();
   execute(source, runTests);
   window.setTimeout(() => {
     if (finished) return;

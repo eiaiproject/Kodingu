@@ -1,0 +1,126 @@
+/* Static lesson pages. They read without JavaScript. */
+
+body > .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.static-page {
+  padding-block: clamp(2.25rem, 5vw, 3.5rem) clamp(3rem, 6vw, 5rem);
+}
+
+.static-article {
+  max-width: 780px;
+}
+
+.static-article .breadcrumb {
+  margin-bottom: 1.25rem;
+}
+
+.static-article .lesson-head {
+  padding-bottom: 1.75rem;
+}
+
+.static-article .theory {
+  padding-block: 1.75rem 2.25rem;
+}
+
+.static-article .theory > :first-child {
+  margin-top: 0;
+}
+
+.static-practice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  margin-top: 1.5rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--paper-raised);
+}
+
+.static-practice > div {
+  flex: 1 1 18rem;
+}
+
+.static-practice p {
+  max-width: 38rem;
+  margin-top: 0.4rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.static-practice .button {
+  flex: none;
+}
+
+.static-challenge {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.static-challenge .requirements {
+  margin-top: 1rem;
+}
+
+.static-source {
+  margin-top: 2rem;
+  color: var(--ink-meta);
+  font-size: 0.82rem;
+}
+
+.static-source a {
+  color: inherit;
+}
+
+@media (max-width: 860px) {
+  body > .site-header {
+    position: static;
+  }
+
+  .static-header .header-inner {
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    padding-block: 0.7rem;
+  }
+
+  .static-nav {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0 1.1rem;
+    width: 100%;
+    margin-left: 0;
+    padding: 0;
+    overflow-x: auto;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .static-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.45rem 0;
+    border-bottom: 0;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 560px) {
+  .static-practice .button {
+    width: 100%;
+  }
+
+  .static-article .lesson-nav a {
+    max-width: 100%;
+  }
+}

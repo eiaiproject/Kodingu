@@ -1994,6 +1994,25 @@
   font-size: 0.86rem;
 }
 
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.data-status {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.data-status:empty {
+  display: none;
+}
+
+.data-status.is-error {
+  color: var(--warn);
+}
+
 /* Certificate page */
 .certificate-wrap {
   padding-bottom: 3rem;
@@ -2680,11 +2699,6 @@
     display: none;
   }
 
-  .icon-button {
-    width: 44px;
-    height: 44px;
-  }
-
   .nav-toggle {
     display: inline-flex;
     width: auto;
@@ -2696,6 +2710,13 @@
     letter-spacing: 0.02em;
     white-space: nowrap;
   }
+}
+
+@media (max-width: 1024px), (pointer: coarse) {
+  .icon-button {
+    width: 44px;
+    height: 44px;
+  }
 
   .button-small,
   .button-quiet {
@@ -2705,6 +2726,10 @@
   .copy-code {
     min-height: 44px;
     padding-inline: 0.65rem;
+  }
+
+  .project-title {
+    min-height: 44px;
   }
 
   .sidebar-list a {
