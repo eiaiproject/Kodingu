@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "Local tooling for the Kodingu static site. The site itself has no build step and ships no runtime dependencies.",
+  "license": "MIT",
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
     "course-index": "node scripts/make-course-index.mjs",

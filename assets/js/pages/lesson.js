@@ -1,5 +1,4 @@
 import { getCourse, getAllLessons } from '../data/course-index.js';
-import { TOKENS_PER_LESSON } from '../core/gamification.js';
 import {
   completeLesson,
   escapeHtml,
@@ -7,7 +6,6 @@ import {
   getProgress,
   icon,
   initChrome,
-  markSolutionViewed,
   progressBar,
   recordActivity,
   recordQuiz,
@@ -152,7 +150,6 @@ function completedPanelMarkup() {
   const lessons = getAllLessons(course);
   const progress = getProgress();
   const entry = progress.completed[lesson.id];
-  const earnedTokens = entry?.tokens || TOKENS_PER_LESSON;
   const next = getNextLesson(course, lesson.id);
   const allDone = lessons.every((item) => progress.completed[item.id]);
   const courseHref = `course.html?course=${encodeURIComponent(course.id)}`;
@@ -168,7 +165,7 @@ function completedPanelMarkup() {
   return `
     <section class="finish-panel is-complete" id="finish-panel" aria-labelledby="finish-heading">
       <h2 class="finish-title" id="finish-heading">${icon('CheckCircle', { size: 20 })} ${allDone ? 'Course complete' : 'Lesson complete'}</h2>
-      <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${lesson.xp} XP and ${earnedTokens} tokens. You can keep editing your work.</p>
+      <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${lesson.xp} XP. You can keep editing your work.</p>
       <div class="finish-actions">
         <a class="button button-primary" href="${nextHref}">${nextLabel}</a>
         ${allDone ? `<a class="button button-secondary" href="certificate.html?course=${encodeURIComponent(course.id)}">Open certificate</a>` : ''}
@@ -226,8 +223,8 @@ function renderMain() {
     .join('');
 
   const quizFeedback = quizDone
-    ? `<output class="feedback is-pass">${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span></output>`
-    : `<output class="feedback" id="quiz-feedback" hidden></output>`;
+    ? `<output class="feedback is-pass" role="status" tabindex="-1">${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span></output>`
+    : `<output class="feedback" id="quiz-feedback" role="status" tabindex="-1" hidden></output>`;
 
   const checks = lesson.challenge.tests
     .map(
@@ -430,6 +427,7 @@ function wireLesson(lesson, quizDone) {
         feedback.className = 'feedback is-pass';
         feedback.hidden = false;
         feedback.innerHTML = `${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span>`;
+        feedback.focus();
       }
       quizCheck.remove();
       recordQuiz(lesson.id, true);
@@ -440,7 +438,8 @@ function wireLesson(lesson, quizDone) {
       if (feedback) {
         feedback.className = 'feedback is-fail';
         feedback.hidden = false;
-        feedback.innerHTML = `${icon('CloseCircle', { size: 16 })}<span>That is not the one. Read the lesson notes and try again.</span>`;
+        feedback.innerHTML = `${icon('CloseCircle', { size: 16 })}<span>That is not the one. ${escapeHtml(lesson.quiz.explanation)}</span>`;
+        feedback.focus();
       }
       toast('Not quite. Try again.');
     }
@@ -460,10 +459,7 @@ function wireLesson(lesson, quizDone) {
   });
 
   wireToggle('#hint-toggle', '#hint', 'Show hint', 'Hide hint');
-  wireToggle('#solution-toggle', '#solution', 'Show solution', 'Hide solution', () => {
-    markSolutionViewed(lesson.id);
-    toast('Solution shown.');
-  });
+  wireToggle('#solution-toggle', '#solution', 'Show solution', 'Hide solution');
 
   finishButton?.addEventListener('click', () => {
     workspace.saveDraft();
@@ -472,10 +468,15 @@ function wireLesson(lesson, quizDone) {
       toast('This lesson is already complete.');
       return;
     }
-    toast(`Lesson complete. +${lesson.xp} XP, +${result.tokensEarned} tokens.${result.freezeUsed ? ' A streak freeze covered the missed day.' : ''}`);
+    toast(`Lesson complete. +${lesson.xp} XP.`);
     renderSidebar();
     const panel = document.querySelector('#finish-panel');
-    if (panel) panel.outerHTML = completedPanelMarkup();
+    if (panel) {
+      panel.outerHTML = completedPanelMarkup();
+      const heading = document.querySelector('#finish-heading');
+      heading?.setAttribute('tabindex', '-1');
+      heading?.focus();
+    }
   });
 
   wireCopyCode(document.querySelector('#lesson-main'));

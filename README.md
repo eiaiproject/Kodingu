@@ -15,7 +15,7 @@ There is no account, backend, or AI tutor. Progress, drafts, and preferences sta
 - **6 extra challenges:** two HTML, two CSS, and two JavaScript.
 - **615 practice XP:** 430 from guided projects and 185 from extra challenges.
 - **In-browser editor:** live preview, run controls, automated checks, hints, and solutions.
-- **Progress and rewards:** XP, tokens, daily missions, streak freezes, freeze chests, weekly league, history, and course certificates.
+- **Progress:** XP, streak, history, and course certificates, all stored in this browser.
 - **Light and dark themes:** responsive layouts, keyboard controls, and reduced-motion support.
 - **Offline after the first visit:** the shell, styles, scripts, and visited pages are cached. Each lesson data module is cached when you open it; a lesson you have not opened needs a connection.
 - **Readable lesson pages:** every lesson has a static page for search, sharing, and reading without JavaScript.
@@ -63,7 +63,7 @@ There are four projects. Each one opens in a single-file workspace with a previe
 | A field notes counter | JavaScript | State, event handlers, plural labels, and an honest reset. |
 | A small studio page | HTML, CSS, and JavaScript | A responsive page with a skip link, focus styles, and one interaction. |
 
-Projects are practice, not a course requirement. They add XP and tokens, and the checks are manual because a finished page is more than a passing test.
+Projects are practice, not a course requirement. They add XP, and the checks are manual because a finished page is more than a passing test.
 
 ### Extra challenges
 
@@ -73,13 +73,13 @@ Six short challenges sit outside the courses:
 - CSS: a ticket stub and a responsive quote.
 - JavaScript: a tab switcher and a word count.
 
-Challenges use the same editor and checks as lessons. They add XP and tokens without changing course progress or certificates.
+Challenges use the same editor and checks as lessons. They add XP without changing course progress or certificates.
 
-## Progress and rewards
+## Progress
 
-A lesson or challenge adds 10 tokens; a project adds 20. Daily missions award more tokens. Forty tokens buy a streak freeze, which covers one missed day, and up to three freezes can be held.
+Finishing a lesson adds its XP once and keeps the day's streak. Extra challenges and guided projects add XP to the same total but do not change course completion.
 
-The weekly league measures your own XP since Monday against fixed thresholds. It is not a public leaderboard. Certificates are printable local records, not verified credentials.
+The progress page shows XP, the current streak, finished lessons, finished projects, course progress, history, and certificates. There is no public leaderboard: every number comes from work finished in this browser. Certificates are printable local records, not verified credentials.
 
 ## Using the site
 
@@ -88,7 +88,7 @@ The weekly league measures your own XP since Monday against fixed thresholds. It
 3. Read the lesson, answer the quiz, then write your code in the editor.
 4. Use **Run** to refresh the preview and **Check** to test your work.
 5. Finish the lesson when the quiz is correct and every check passes.
-6. Open the progress page to see XP, tokens, missions, streak, league, history, and certificates.
+6. Open the progress page to see XP, streak, lessons, projects, history, and certificates.
 7. Use the projects and extra challenges when you want a larger or different exercise.
 
 The interface is in English. Nothing on the site requires an account, payment, or external editor.
@@ -105,7 +105,7 @@ The interface is in English. Nothing on the site requires an account, payment, o
 | `challenge.html` | Challenge workspace, driven by `?challenge=`. |
 | `projects.html` | List of guided projects. |
 | `project.html` | Project workspace, driven by `?project=`. |
-| `progress.html` | XP, streak, tokens, missions, league, history, and certificates. |
+| `progress.html` | XP, streak, lessons, projects, history, and certificates. |
 | `certificate.html` | Printable course certificate, driven by `?course=`. |
 | `lessons/{id}.html` | Static reading page for every lesson, generated from the lesson data. |
 | `404.html` | Custom not found page. |
@@ -154,7 +154,7 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 │   │   ├── static.css         Reading layout for generated lesson pages
 │   │   └── app.css            Components and page layouts
 │   └── js/
-│       ├── core/              Shared chrome, storage, progress, gamification, icons
+│       ├── core/              Shared chrome, storage, progress, icons
 │       ├── data/              Courses, projects, challenges, test helpers
 │       │   └── lessons/       Generated per-lesson runtime data
 │       ├── editor/            Editor workspace and sandbox runner
@@ -288,16 +288,16 @@ To regenerate the icon set from Reicon, run `npm run icons`. To rebuild the favi
 
 Kodingu stores these keys in `localStorage`:
 
-- `kodingu.progress.v1`: XP, tokens, streak, missions, league, history, and completed work.
+- `kodingu.progress.v1`: XP, streak, history, and completed lessons, challenges, and projects.
 - `kodingu.theme`: the selected light or dark theme.
 - `kodingu.draft.<lessonId>`: the current lesson draft.
 - `kodingu.challengeDraft.<challengeId>`: the current challenge draft.
 - `kodingu.projectDraft.<projectId>`: the current project draft.
 - `kodingu.certificate.name`: the name used on a certificate.
 
-Clear site data in the browser to remove progress, drafts, the theme, and the certificate name. **Reset progress** on the progress page clears XP, tokens, streak, missions, and completed work, but keeps drafts and the theme. There is no server copy to restore.
+Clear site data in the browser to remove progress, drafts, the theme, and the certificate name. **Reset progress** on the progress page clears XP, streak, and completed work, but keeps drafts and the theme. There is no server copy to restore.
 
-**Export JSON** writes a copy of the progress, schema version, export date, and certificate name. **Import JSON** restores that file in another browser. Imports are limited to 1 MB and checked for the Kodingu format, a supported schema version, and an object progress payload before they replace local data. `migrateProgress()` carries unversioned legacy data and version 0 forward to version 1.
+**Export JSON** writes a copy of the progress, schema version, export date, and certificate name. **Import JSON** restores that file in another browser. Imports are limited to 1 MB, checked for the Kodingu format and a supported schema version, and filtered against the lessons, challenges, and projects that exist here. The imported XP total is recalculated from the surviving entries, so a file cannot invent progress. `migrateProgress()` carries unversioned legacy data forward to version 2.
 
 If the browser blocks local storage, progress stays in memory for the current page and is lost on reload.
 

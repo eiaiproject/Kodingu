@@ -1,26 +1,21 @@
 import { ICONS } from './icons.js';
 import { courses, getAllLessons } from '../data/course-index.js';
 import { runJavaScriptLesson } from '../editor/js-runner.js';
-import {
-  CHEST_COST,
-  FREEZE_LIMIT,
-  TOKENS_PER_CHALLENGE,
-  TOKENS_PER_LESSON,
-  TOKENS_PER_PROJECT,
-  getDailyMissions,
-  getMissionProgress
-} from './gamification.js';
 
 const STORAGE_KEY = 'kodingu.progress.v1';
 const THEME_KEY = 'kodingu.theme';
 
 export const PROGRESS_FORMAT = 'kodingu-progress';
-export const PROGRESS_VERSION = 1;
+export const PROGRESS_VERSION = 2;
 export const MAX_IMPORT_BYTES = 1024 * 1024;
 export const CERTIFICATE_NAME_KEY = 'kodingu.certificate.name';
 
+const ALL_LESSONS = courses.flatMap((course) => getAllLessons(course));
+const LESSON_BY_ID = new Map(ALL_LESSONS.map((lesson) => [lesson.id, lesson]));
+
 let storageOk;
 let memoryProgress = null;
+let progressReadError = null;
 let toastTimer = null;
 let iconSequence = 0;
 
@@ -73,11 +68,8 @@ export function storageAvailable() {
 
 function defaultProgress() {
   return {
-    version: 1,
+    version: PROGRESS_VERSION,
     xp: 0,
-    tokens: 0,
-    streakFreezes: 0,
-    chestsOpened: 0,
     streak: 0,
     lastLessonDay: null,
     completed: {},
@@ -86,14 +78,12 @@ function defaultProgress() {
     projectChecks: {},
     quizzes: {},
     history: [],
-    missions: {},
-    activity: [],
-    solutionViews: []
+    activity: []
   };
 }
 
 const objectOrEmpty = (value) =>
-  value && typeof value === 'object' ? value : {};
+  value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
 const finiteNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -102,45 +92,75 @@ const finiteNumber = (value, fallback = 0) => {
 
 const nonNegative = (value, fallback = 0) => Math.max(0, finiteNumber(value, fallback));
 
-function normalizeProgress(parsed) {
+function completionMap(value, catalog = null) {
+  const source = objectOrEmpty(value);
+  const result = {};
+  for (const [id, entry] of Object.entries(source)) {
+    const item = catalog?.get(id);
+    if (catalog && !item) continue;
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    result[id] = {
+      at: typeof entry.at === 'string' ? entry.at : null,
+      xp: nonNegative(item?.xp, entry.xp)
+    };
+  }
+  return result;
+}
+
+function projectCheckMap(value) {
+  const source = objectOrEmpty(value);
+  return Object.fromEntries(
+    Object.entries(source)
+      .filter(([, checks]) => Array.isArray(checks))
+      .map(([id, checks]) => [
+        id,
+        checks.filter((entry) => typeof entry === 'string' || Number.isInteger(entry))
+      ])
+  );
+}
+
+function quizMap(value) {
+  const source = objectOrEmpty(value);
+  return Object.fromEntries(
+    Object.entries(source).filter(([id, entry]) =>
+      LESSON_BY_ID.has(id) && entry && typeof entry === 'object' && !Array.isArray(entry)
+    )
+  );
+}
+
+function normalizeProgress(parsed, catalogs = {}) {
   const data = objectOrEmpty(parsed);
-  const completed = objectOrEmpty(data.completed);
-  const completedChallenges = objectOrEmpty(data.completedChallenges);
-  const completedProjects = objectOrEmpty(data.completedProjects);
-  const fallbackTokens =
-    Object.keys(completed).length * TOKENS_PER_LESSON +
-    Object.keys(completedChallenges).length * TOKENS_PER_CHALLENGE +
-    Object.keys(completedProjects).length * TOKENS_PER_PROJECT;
   return {
-    ...defaultProgress(),
-    ...data,
-    completed,
-    completedChallenges,
-    completedProjects,
-    projectChecks: objectOrEmpty(data.projectChecks),
+    version: PROGRESS_VERSION,
     xp: nonNegative(data.xp),
-    tokens: data.tokens === undefined || data.tokens === null
-      ? fallbackTokens
-      : nonNegative(data.tokens, fallbackTokens),
-    streakFreezes: nonNegative(data.streakFreezes),
-    chestsOpened: nonNegative(data.chestsOpened),
     streak: nonNegative(data.streak),
     lastLessonDay: typeof data.lastLessonDay === 'string' ? data.lastLessonDay : null,
-    quizzes: objectOrEmpty(data.quizzes),
-    history: Array.isArray(data.history) ? data.history : [],
-    missions: objectOrEmpty(data.missions),
-    activity: Array.isArray(data.activity) ? data.activity : [],
-    solutionViews: Array.isArray(data.solutionViews) ? data.solutionViews : [],
-    version: PROGRESS_VERSION
+    completed: completionMap(data.completed, LESSON_BY_ID),
+    completedChallenges: completionMap(data.completedChallenges, catalogs.challenges),
+    completedProjects: completionMap(data.completedProjects, catalogs.projects),
+    projectChecks: projectCheckMap(data.projectChecks),
+    quizzes: quizMap(data.quizzes),
+    history: Array.isArray(data.history) ? data.history.slice(0, 50) : [],
+    activity: Array.isArray(data.activity) ? data.activity.slice(0, 200) : []
   };
+}
+
+function completionXp(progress) {
+  return [progress.completed, progress.completedChallenges, progress.completedProjects].reduce(
+    (total, map) =>
+      total +
+      Object.values(map).reduce((sum, entry) => sum + nonNegative(entry.xp), 0),
+    0
+  );
 }
 
 const PROGRESS_MIGRATIONS = {
   0: (data) => ({ ...data, version: 1 }),
-  1: (data) => data
+  1: (data) => ({ ...data, version: 2 }),
+  2: (data) => data
 };
 
-export function migrateProgress(parsed, { strict = false } = {}) {
+export function migrateProgress(parsed, { strict = false, catalogs = {} } = {}) {
   let data = objectOrEmpty(parsed);
   let version = Number(data.version);
   if (!Number.isInteger(version) || version < 0) version = 0;
@@ -148,7 +168,7 @@ export function migrateProgress(parsed, { strict = false } = {}) {
     if (strict) {
       throw new Error(`This file uses progress version ${version}. This site supports version ${PROGRESS_VERSION}.`);
     }
-    return normalizeProgress({ ...data, version: PROGRESS_VERSION });
+    return normalizeProgress({ ...data, version: PROGRESS_VERSION }, catalogs);
   }
   while (version < PROGRESS_VERSION) {
     const migrate = PROGRESS_MIGRATIONS[version];
@@ -156,7 +176,11 @@ export function migrateProgress(parsed, { strict = false } = {}) {
     data = migrate(data);
     version += 1;
   }
-  return normalizeProgress({ ...data, version: PROGRESS_VERSION });
+  return normalizeProgress({ ...data, version: PROGRESS_VERSION }, catalogs);
+}
+
+export function getProgressReadError() {
+  return progressReadError;
 }
 
 export function getProgress() {
@@ -166,10 +190,11 @@ export function getProgress() {
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
+    progressReadError = null;
     if (!raw) return defaultProgress();
     return migrateProgress(JSON.parse(raw));
   } catch (error) {
-    // Corrupt or unavailable storage starts a fresh local profile.
+    progressReadError = 'Saved progress could not be read. Export it first if you can, then reset progress.';
     console.warn('Kodingu: saved progress could not be read.', error);
     return defaultProgress();
   }
@@ -195,11 +220,13 @@ export function resetProgress() {
   if (storageAvailable()) {
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(CERTIFICATE_NAME_KEY);
     } catch (error) {
       storageOk = false;
       console.warn('Kodingu: the saved progress could not be removed.', error);
     }
   }
+  progressReadError = null;
   memoryProgress = defaultProgress();
   window.dispatchEvent(new CustomEvent('kodingu:progress', { detail: memoryProgress }));
 }
@@ -220,7 +247,7 @@ export function createProgressExport() {
   };
 }
 
-export function importProgressPayload(payload) {
+export async function importProgressPayload(payload) {
   if (!payload || typeof payload !== 'object' || payload.format !== PROGRESS_FORMAT) {
     throw new Error('This file is not a Kodingu progress export.');
   }
@@ -231,21 +258,35 @@ export function importProgressPayload(payload) {
     throw new Error('This export does not include progress data.');
   }
 
+  const [{ extraChallenges }, { projects }] = await Promise.all([
+    import('../data/data-challenges.js'),
+    import('../data/data-projects.js')
+  ]);
   const progress = migrateProgress(
     { ...payload.progress, version: payload.version },
-    { strict: true }
+    {
+      strict: true,
+      catalogs: {
+        challenges: new Map(extraChallenges.map((item) => [item.id, item])),
+        projects: new Map(projects.map((item) => [item.id, item]))
+      }
+    }
   );
+  // An export cannot invent XP: totals come from the work that survived validation.
+  progress.xp = completionXp(progress);
   const profile = objectOrEmpty(payload.profile);
   const certificateName = typeof profile.certificateName === 'string'
     ? profile.certificateName.trim().slice(0, 60)
     : '';
-  if (certificateName && storageAvailable()) {
+  if (storageAvailable()) {
     try {
-      localStorage.setItem(CERTIFICATE_NAME_KEY, certificateName);
+      if (certificateName) localStorage.setItem(CERTIFICATE_NAME_KEY, certificateName);
+      else localStorage.removeItem(CERTIFICATE_NAME_KEY);
     } catch (error) {
       // The progress import still succeeds when the name cannot be stored.
     }
   }
+  progressReadError = null;
   saveProgress(progress);
   return progress;
 }
@@ -271,19 +312,9 @@ function dayDifference(fromKey, toKey) {
 
 export function getStreakState(progress = getProgress()) {
   const streak = Number(progress.streak) || 0;
-  if (!progress.lastLessonDay || !streak) {
-    return { streak: 0, protectedByFreeze: false };
-  }
+  if (!progress.lastLessonDay || !streak) return { streak: 0 };
   const gap = dayDifference(progress.lastLessonDay, dayKey());
-  if (gap === 0 || gap === 1) {
-    return { streak, protectedByFreeze: false };
-  }
-  if (gap === 2 && (progress.streakFreezes || 0) > 0) {
-    // The freeze covers the missed day. It is spent when the next lesson is
-    // finished, so the caller needs to know the streak is still provisional.
-    return { streak, protectedByFreeze: true };
-  }
-  return { streak: 0, protectedByFreeze: false };
+  return gap === 0 || gap === 1 ? { streak } : { streak: 0 };
 }
 
 export function currentStreak(progress = getProgress()) {
@@ -300,32 +331,16 @@ export function completeLesson(lesson) {
   const today = dayKey(now);
   const previousDay = progress.lastLessonDay;
   let streak = progress.streak || 0;
-  let freezeUsed = false;
 
-  if (previousDay === today) {
-    streak = Math.max(1, streak);
-  } else if (previousDay === yesterdayKey()) {
-    streak += 1;
-  } else if (
-    previousDay &&
-    dayDifference(previousDay, today) === 2 &&
-    (progress.streakFreezes || 0) > 0
-  ) {
-    progress.streakFreezes -= 1;
-    streak += 1;
-    freezeUsed = true;
-  } else {
-    streak = 1;
-  }
+  if (previousDay === today) streak = Math.max(1, streak);
+  else if (previousDay === yesterdayKey()) streak += 1;
+  else streak = 1;
 
-  const tokensEarned = TOKENS_PER_LESSON;
   progress.completed[lesson.id] = {
     at: now.toISOString(),
-    xp: lesson.xp,
-    tokens: tokensEarned
+    xp: lesson.xp
   };
   progress.xp = (progress.xp || 0) + lesson.xp;
-  progress.tokens = (progress.tokens || 0) + tokensEarned;
   progress.streak = streak;
   progress.lastLessonDay = today;
   progress.history = [
@@ -334,14 +349,13 @@ export function completeLesson(lesson) {
       id: lesson.id,
       title: lesson.title,
       xp: lesson.xp,
-      tokens: tokensEarned,
       at: now.toISOString()
     },
     ...(progress.history || [])
   ].slice(0, 50);
 
   saveProgress(progress);
-  return { completed: true, progress, tokensEarned, freezeUsed };
+  return { completed: true, progress, xpEarned: lesson.xp };
 }
 
 export function completeChallenge(challenge) {
@@ -352,33 +366,30 @@ export function completeChallenge(challenge) {
 
   const now = new Date();
   const xpEarned = challenge.xp || 0;
-  const tokensEarned = challenge.tokens ?? TOKENS_PER_CHALLENGE;
   progress.completedChallenges[challenge.id] = {
     at: now.toISOString(),
-    xp: xpEarned,
-    tokens: tokensEarned
+    xp: xpEarned
   };
   progress.xp = (progress.xp || 0) + xpEarned;
-  progress.tokens = (progress.tokens || 0) + tokensEarned;
   progress.history = [
     {
       type: 'challenge',
       id: challenge.id,
       title: challenge.title,
       xp: xpEarned,
-      tokens: tokensEarned,
       at: now.toISOString()
     },
     ...(progress.history || [])
   ].slice(0, 50);
   saveProgress(progress);
-  return { completed: true, progress, xpEarned, tokensEarned };
+  return { completed: true, progress, xpEarned };
 }
 
 export function getProjectChecks(project) {
   const progress = getProgress();
   const requirements = project.requirements || [];
-  const stored = progress.projectChecks[project.id] || [];
+  const saved = progress.projectChecks[project.id];
+  const stored = Array.isArray(saved) ? saved : [];
   // Older builds stored requirement indexes. Resolve them to the requirement
   // text so editing the list cannot silently move a saved check to another item.
   const requirementSet = new Set(requirements);
@@ -417,27 +428,23 @@ export function completeProject(project) {
 
   const now = new Date();
   const xpEarned = project.xp || 0;
-  const tokensEarned = project.tokens ?? TOKENS_PER_PROJECT;
   progress.completedProjects[project.id] = {
     at: now.toISOString(),
-    xp: xpEarned,
-    tokens: tokensEarned
+    xp: xpEarned
   };
   progress.xp = (progress.xp || 0) + xpEarned;
-  progress.tokens = (progress.tokens || 0) + tokensEarned;
   progress.history = [
     {
       type: 'project',
       id: project.id,
       title: project.title,
       xp: xpEarned,
-      tokens: tokensEarned,
       at: now.toISOString()
     },
     ...(progress.history || [])
   ].slice(0, 50);
   saveProgress(progress);
-  return { completed: true, progress, xpEarned, tokensEarned };
+  return { completed: true, progress, xpEarned };
 }
 
 export function recordQuiz(lessonId, correct) {
@@ -445,20 +452,6 @@ export function recordQuiz(lessonId, correct) {
   const progress = getProgress();
   progress.quizzes[lessonId] = { at: new Date().toISOString(), correct: true };
   saveProgress(progress);
-}
-
-export function markSolutionViewed(lessonId) {
-  const progress = getProgress();
-  if (!progress.solutionViews.includes(lessonId)) {
-    progress.solutionViews.push(lessonId);
-    saveProgress(progress);
-  }
-}
-
-function hasUnfinishedLessons(progress) {
-  return courses.some((course) =>
-    getAllLessons(course).some((lesson) => !progress.completed[lesson.id])
-  );
 }
 
 export function recordActivity(type, lessonId) {
@@ -478,59 +471,6 @@ export function recordActivity(type, lessonId) {
     ...(progress.activity || [])
   ].slice(0, 200);
   saveProgress(progress);
-}
-
-export function claimDailyMission(missionId) {
-  const progress = getProgress();
-  const today = dayKey();
-  const day = progress.missions[today] || {};
-  const claimed = Array.isArray(day.claimed) ? day.claimed : [];
-  const mission = getDailyMissions(hasUnfinishedLessons(progress)).find(
-    (item) => item.id === missionId
-  );
-  if (!mission) {
-    return { claimed: false, reason: 'That mission is not available today.' };
-  }
-  if (claimed.includes(missionId)) {
-    return { claimed: false, reason: 'That mission is already claimed.' };
-  }
-  if (getMissionProgress(progress, mission) < mission.target) {
-    return { claimed: false, reason: 'That mission is not complete yet.' };
-  }
-  progress.tokens = (progress.tokens || 0) + mission.reward;
-  progress.missions = {
-    ...progress.missions,
-    [today]: { claimed: [...claimed, missionId] }
-  };
-  saveProgress(progress);
-  return { claimed: true, reward: mission.reward, progress };
-}
-
-export function buyFreezeChest() {
-  const progress = getProgress();
-  const tokens = progress.tokens || 0;
-  if (tokens < CHEST_COST) {
-    return { ok: false, reason: `You need ${CHEST_COST - tokens} more tokens.` };
-  }
-  if ((progress.streakFreezes || 0) >= FREEZE_LIMIT) {
-    return { ok: false, reason: 'All three freeze slots are full.' };
-  }
-  const now = new Date();
-  progress.tokens = tokens - CHEST_COST;
-  progress.streakFreezes = (progress.streakFreezes || 0) + 1;
-  progress.chestsOpened = (progress.chestsOpened || 0) + 1;
-  progress.history = [
-    {
-      type: 'chest',
-      id: 'freeze-chest',
-      title: 'Freeze chest',
-      tokens: -CHEST_COST,
-      at: now.toISOString()
-    },
-    ...(progress.history || [])
-  ].slice(0, 50);
-  saveProgress(progress);
-  return { ok: true, progress };
 }
 
 export function getCourseStats(course) {
@@ -698,12 +638,10 @@ export function setTheme(theme) {
 function headerStatsMarkup(progress) {
   const xp = Number(progress.xp) || 0;
   const streak = Number(currentStreak(progress)) || 0;
-  const tokens = Number(progress.tokens) || 0;
-  if (!xp && !streak && !tokens) return '';
+  if (!xp && !streak) return '';
   return `
     <span class="header-stat" data-stat="xp">${icon('Gauge', { size: 16 })}<span></span></span>
     <span class="header-stat" data-stat="streak">${icon('Fire', { size: 16 })}<span></span></span>
-    <span class="header-stat" data-stat="tokens">${icon('Coins', { size: 16 })}<span></span></span>
   `;
 }
 
@@ -712,27 +650,53 @@ function updateHeaderStats(progress) {
   if (!strip) return;
   const xp = Number(progress.xp) || 0;
   const streak = Number(currentStreak(progress)) || 0;
-  const tokens = Number(progress.tokens) || 0;
   const xpNode = strip.querySelector('[data-stat="xp"]');
   const streakNode = strip.querySelector('[data-stat="streak"]');
-  const tokensNode = strip.querySelector('[data-stat="tokens"]');
   if (xpNode) {
     xpNode.setAttribute('aria-label', `${xp} XP`);
     xpNode.querySelector('span').textContent = `${xp} XP`;
   }
   if (streakNode) {
-    const streakState = getStreakState(progress);
-    const label = streakState.protectedByFreeze
-      ? `${streakState.streak} day streak, a freeze is covering the missed day`
-      : `${streakState.streak} day streak`;
+    const label = `${streak} day streak`;
     streakNode.setAttribute('aria-label', label);
     streakNode.title = label;
     streakNode.querySelector('span').textContent = String(streak);
   }
-  if (tokensNode) {
-    tokensNode.setAttribute('aria-label', `${tokens} tokens`);
-    tokensNode.querySelector('span').textContent = String(tokens);
+}
+
+export function getResumeTarget() {
+  const progress = getProgress();
+  const started = Object.keys(progress.completed).length > 0;
+  for (const course of courses) {
+    const lessons = getAllLessons(course);
+    const next = lessons.find((lesson) => !progress.completed[lesson.id]);
+    if (next) {
+      return {
+        href: `lesson.html?course=${encodeURIComponent(course.id)}&lesson=${encodeURIComponent(next.id)}`,
+        label: started ? 'Continue' : `Start ${course.title.split(' ')[0]}`,
+        title: next.title
+      };
+    }
   }
+  const course = courses.find((item) => getAllLessons(item).length);
+  const lesson = course ? getAllLessons(course)[0] : null;
+  if (!course || !lesson) {
+    return { href: 'catalog.html', label: 'Browse catalog', title: 'the catalog' };
+  }
+  return {
+    href: `lesson.html?course=${encodeURIComponent(course.id)}&lesson=${encodeURIComponent(lesson.id)}`,
+    label: 'Review',
+    title: lesson.title
+  };
+}
+
+function applyHeaderCta(root = document) {
+  const target = getResumeTarget();
+  root.querySelectorAll('[data-header-cta]').forEach((link) => {
+    link.href = target.href;
+    link.textContent = target.label;
+    link.setAttribute('aria-label', `${target.label}: ${target.title}`);
+  });
 }
 
 function refreshHeaderStats() {
@@ -743,6 +707,7 @@ function refreshHeaderStats() {
   strip.innerHTML = markup;
   strip.hidden = !markup;
   updateHeaderStats(progress);
+  applyHeaderCta();
 }
 
 export function renderHeader() {
@@ -768,7 +733,7 @@ export function renderHeader() {
           <a href="projects.html" data-nav="projects project">Projects</a>
           <a href="practice.html" data-nav="practice challenge">Practice</a>
           <a href="progress.html" data-nav="progress">Progress</a>
-          <a class="button button-primary nav-cta" href="lesson.html?course=html&amp;lesson=html-01">Start HTML</a>
+          <a class="button button-primary nav-cta" data-header-cta href="lesson.html?course=html&amp;lesson=html-01">Start HTML</a>
         </nav>
 
         <div class="header-actions">
@@ -776,7 +741,7 @@ export function renderHeader() {
           <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false">
             ${icon(theme === 'dark' ? 'Sun' : 'Moon', { size: 19 })}
           </button>
-          <a class="button button-primary header-cta" href="lesson.html?course=html&amp;lesson=html-01">Start HTML</a>
+          <a class="button button-primary header-cta" data-header-cta href="lesson.html?course=html&amp;lesson=html-01">Start HTML</a>
           <button class="icon-button nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
             ${icon('Menu', { size: 20 })}
             <span class="nav-toggle-label">Menu</span>
@@ -791,6 +756,7 @@ export function renderHeader() {
     if (targets.includes(page)) link.setAttribute('aria-current', 'page');
   });
   updateHeaderStats(progress);
+  applyHeaderCta(mount);
 
   updateThemeButton(theme);
 

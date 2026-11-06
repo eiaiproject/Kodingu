@@ -1,4 +1,4 @@
-const CACHE = 'kodingu-v10';
+const CACHE = 'kodingu-v11';
 
 const SHELL = [
   'index.html',
@@ -11,6 +11,7 @@ const SHELL = [
   'project.html',
   'progress.html',
   'certificate.html',
+  'offline.html',
   '404.html',
   'favicon.svg',
   'assets/css/base.css',
@@ -31,7 +32,6 @@ const SHELL = [
   'assets/js/data/data-challenges.js',
   'assets/js/data/data-helpers.js',
   'assets/js/data/data-projects.js',
-  'assets/js/core/gamification.js',
   'assets/js/pages/home.js',
   'assets/js/core/icons.js',
   'assets/js/editor/js-runner.js',
@@ -94,7 +94,7 @@ async function networkFirst(request) {
       (await cache.match(request)) ||
       (await cache.match(`${url.pathname}.html`)) ||
       (await cache.match(`${url.pathname}index.html`)) ||
-      (await cache.match('404.html'));
+      (await cache.match('offline.html'));
     if (cached) return cached;
     throw error;
   }

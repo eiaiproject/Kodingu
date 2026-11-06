@@ -203,8 +203,6 @@ const MEASURE = () => {
     const spreads = {};
     for (const selector of [
       '.stat',
-      '.reward-card',
-      '.mission-item',
       '.course-row',
       '.history-card',
       '.catalog-item'
@@ -247,7 +245,7 @@ const MEASURE = () => {
   const measureWideText = () => {
     const wideText = [];
     for (const el of document.querySelectorAll(
-      '.theory p, .lede, .course-description, .challenge-prompt, .mission-desc'
+      '.theory p, .lede, .course-description, .challenge-prompt'
     )) {
       if (!visible(el)) continue;
       const rect = el.getBoundingClientRect();
@@ -364,13 +362,11 @@ await runSeries([390, 320], async (width) => {
     localStorage.setItem(
       'kodingu.progress.v1',
       JSON.stringify({
-        version: 1,
+        version: 2,
         xp: 2310,
-        tokens: 800,
         streak: 5,
-        streakFreezes: 2,
         lastLessonDay: new Date().toISOString().slice(0, 10),
-        completed: { 'html-01': { at: new Date().toISOString(), xp: 25, tokens: 10 } },
+        completed: { 'html-01': { at: new Date().toISOString(), xp: 25 } },
         history: []
       })
     );

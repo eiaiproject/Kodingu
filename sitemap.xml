@@ -4,7 +4,6 @@
   <url><loc>https://kodingu.pages.dev/catalog</loc></url>
   <url><loc>https://kodingu.pages.dev/projects</loc></url>
   <url><loc>https://kodingu.pages.dev/practice</loc></url>
-  <url><loc>https://kodingu.pages.dev/progress</loc></url>
   <url><loc>https://kodingu.pages.dev/course?course=html</loc></url>
   <url><loc>https://kodingu.pages.dev/lessons/html-01</loc></url>
   <url><loc>https://kodingu.pages.dev/lessons/html-02</loc></url>
@@ -78,14 +77,4 @@
   <url><loc>https://kodingu.pages.dev/lessons/js-17</loc></url>
   <url><loc>https://kodingu.pages.dev/lessons/js-18</loc></url>
   <url><loc>https://kodingu.pages.dev/lessons/js-19</loc></url>
-  <url><loc>https://kodingu.pages.dev/project?project=project-recipe</loc></url>
-  <url><loc>https://kodingu.pages.dev/project?project=project-reading</loc></url>
-  <url><loc>https://kodingu.pages.dev/project?project=project-counter</loc></url>
-  <url><loc>https://kodingu.pages.dev/project?project=project-studio</loc></url>
-  <url><loc>https://kodingu.pages.dev/challenge?challenge=extra-html-01</loc></url>
-  <url><loc>https://kodingu.pages.dev/challenge?challenge=extra-html-02</loc></url>
-  <url><loc>https://kodingu.pages.dev/challenge?challenge=extra-css-01</loc></url>
-  <url><loc>https://kodingu.pages.dev/challenge?challenge=extra-css-02</loc></url>
-  <url><loc>https://kodingu.pages.dev/challenge?challenge=extra-js-01</loc></url>
-  <url><loc>https://kodingu.pages.dev/challenge?challenge=extra-js-02</loc></url>
 </urlset>

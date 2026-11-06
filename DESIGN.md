@@ -94,10 +94,9 @@ Examples:
 - **HTML before CSS:** a complete HTML course is more useful than three empty catalogs, so HTML opened first.
 - **CSS foundations before layout:** selectors, the cascade, color, type, and the box model are the base for flexbox and responsive work, so they come first.
 - **JavaScript runs in a sandboxed frame:** the learner's code can change a page and be checked without touching the site UI, and the main page never evaluates learner code.
-- **A local league, not a leaderboard:** with no accounts, a leaderboard would have to invent other learners, so the league measures the reader's own week.
-- **Deterministic freeze chest:** the chest always gives one freeze, so there are no odds, near-misses, or pressure to spend.
+- **No economy on top of learning:** tokens, a weekly league, daily missions, and freeze chests added state to maintain without making the next lesson better, so progress stays XP, streak, history, and certificates.
 - **Certificates are local records:** the page prints a real record of finished work and says plainly that Kodingu does not verify it.
 - **Projects use one file:** a project should be openable after download without a build step, so the workspace and the saved file stay the same HTML document.
 - **Project checks are manual:** a finished page has copy, layout, and behavior that a selector test cannot judge, so the learner opens the preview and checks each requirement.
-- **Extra challenges stay outside the courses:** optional practice should add XP and tokens without inflating course completion or certificate eligibility.
+- **Extra challenges stay outside the courses:** optional practice should add XP without inflating course completion or certificate eligibility.
 - **One workspace, three languages:** projects and challenges reuse the lesson editor, checks, and draft behavior, so the site has one interaction model to learn and maintain.

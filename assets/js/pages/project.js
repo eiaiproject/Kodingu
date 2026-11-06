@@ -93,7 +93,7 @@ function completedPanelMarkup(progress) {
   return `
     <section class="finish-panel is-complete" id="finish-panel" aria-labelledby="finish-heading">
       <h2 class="finish-title" id="finish-heading">${icon('CheckCircle', { size: 20 })} Project complete</h2>
-      <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${project.xp} XP and ${entry?.tokens || project.tokens} tokens. The file is still yours to download and keep working on.</p>
+      <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${project.xp} XP. The file is still yours to download and keep working on.</p>
       <div class="finish-actions">
         ${next ? `<a class="button button-primary" href="project.html?project=${encodeURIComponent(next.id)}">Next project: ${escapeHtml(next.title)}</a>` : '<a class="button button-primary" href="projects.html">All projects</a>'}
         <a class="button button-secondary" href="projects.html">Project library</a>
@@ -311,7 +311,7 @@ function wireWorkspace() {
       document.body.append(link);
       link.click();
       link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast('Project downloaded.');
     } catch (error) {
       // Some browsers block downloads started without a direct file handle.
@@ -335,9 +335,12 @@ function wireWorkspace() {
       toast(result.reason || 'This project is already complete.');
       return;
     }
-    toast(`Project complete. +${result.xpEarned} XP, +${result.tokensEarned} tokens.`);
+    toast(`Project complete. +${result.xpEarned} XP.`);
     renderSidebar();
     renderMain();
+    const heading = document.querySelector('#project-main h1');
+    heading?.setAttribute('tabindex', '-1');
+    heading?.focus();
   });
 }
 
