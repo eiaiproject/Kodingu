@@ -121,6 +121,12 @@ function quizMap(value) {
   );
 }
 
+function historyCatalog(type, catalogs) {
+  if (type === 'lesson') return LESSON_BY_ID;
+  if (type === 'challenge') return catalogs.challenges;
+  return catalogs.projects;
+}
+
 function historyEntries(value, catalogs = {}) {
   if (!Array.isArray(value)) return [];
   return value
@@ -129,12 +135,7 @@ function historyEntries(value, catalogs = {}) {
       if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
       const { type, id } = entry;
       if (!HISTORY_TYPES.has(type) || typeof id !== 'string' || !id) return null;
-      const catalog =
-        type === 'lesson'
-          ? LESSON_BY_ID
-          : type === 'challenge'
-            ? catalogs.challenges
-            : catalogs.projects;
+      const catalog = historyCatalog(type, catalogs);
       const item = catalog?.get(id);
       if (catalog && !item) return null;
       const at = validTimestamp(entry.at);
@@ -246,6 +247,8 @@ function recoveryRecord() {
     }
     return { savedAt: null, raw: stored };
   } catch (error) {
+    // Nothing can be restored from an unreadable backup; the page still works without it.
+    console.warn('Kodingu: the saved recovery record could not be read.', error);
     return null;
   }
 }

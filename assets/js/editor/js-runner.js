@@ -19,7 +19,7 @@ function timeoutError(seconds) {
 // The preflight runs the learner's script in a Worker before the sandboxed
 // iframe exists. A no-op DOM keeps ordinary lessons running, and a script that
 // never finishes is terminated here instead of blocking the page thread.
-const PREFLIGHT_PREAMBLE = `
+const PREFLIGHT_PREAMBLE = String.raw`
 const fakeNode = (() => {
   let proxy;
   let list;
@@ -46,7 +46,7 @@ const fakeNode = (() => {
     get(target, key) {
       if (key === Symbol.iterator) return function* () {};
       if (key === 'item') return () => proxy;
-      if (typeof key === 'string' && /^\\d+$/.test(key)) return proxy;
+      if (typeof key === 'string' && /^\d+$/.test(key)) return proxy;
       return Reflect.get(target, key);
     }
   });
@@ -94,7 +94,7 @@ export function preflightJavaScript(source) {
       resolve(result);
     };
     try {
-      const token = `preflight-${Date.now()}-${Math.random()}`;
+      const token = `preflight-${++sequence}`;
       workerUrl = URL.createObjectURL(
         new Blob([PREFLIGHT_PREAMBLE, source, preflightPostamble(token)], {
           type: 'text/javascript'
@@ -107,6 +107,7 @@ export function preflightJavaScript(source) {
       worker.onerror = () => finish('ok');
       timer = window.setTimeout(() => finish('timeout'), PREFLIGHT_TIMEOUT);
     } catch (error) {
+      console.warn('Kodingu: the script preflight could not start.', error);
       finish('ok');
     }
   });

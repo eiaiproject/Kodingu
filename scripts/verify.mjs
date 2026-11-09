@@ -434,6 +434,18 @@ async function runProject(page, base, project) {
 
 async function runUnitChecks(page, base) {
   await openPage(page, base, '/index.html');
+  await checkUnitLessonTracking(page);
+  await checkUnitProgressTransfer(page);
+  await checkUnitImportSanitizing(page);
+  await checkUnitProgressDataControls(page, base);
+  await checkUnitLessonEditor(page, base);
+  await checkUnitProgressRecovery(page, base);
+  await checkUnitProgressReset(page);
+  await checkUnitHeader(page);
+  await checkUnitStorageFallback(page);
+}
+
+async function checkUnitLessonTracking(page) {
   const streak = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const keyFor = (offset) => {
@@ -517,7 +529,9 @@ async function runUnitChecks(page, base) {
     'progress: version 2 drops the token field',
     JSON.stringify(normalized)
   );
+}
 
+async function checkUnitProgressTransfer(page) {
   const transfer = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     localStorage.setItem('kodingu.progress.v1', JSON.stringify({ version: 0, xp: '40', completed: {} }));
@@ -592,7 +606,9 @@ async function runUnitChecks(page, base) {
     'progress: export includes the schema version, progress, and certificate name',
     JSON.stringify(transfer)
   );
+}
 
+async function checkUnitImportSanitizing(page) {
   const sanitized = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const at = new Date().toISOString();
@@ -682,7 +698,9 @@ async function runUnitChecks(page, base) {
     'progress: import drops malformed activity entries',
     JSON.stringify(sanitizedLists.activity)
   );
+}
 
+async function checkUnitProgressDataControls(page, base) {
   await page.evaluate(() => {
     localStorage.setItem(
       'kodingu.progress.v1',
@@ -714,7 +732,9 @@ async function runUnitChecks(page, base) {
     JSON.stringify(dataControls)
   );
   await page.evaluate(() => localStorage.removeItem('kodingu.progress.v1'));
+}
 
+async function checkUnitLessonEditor(page, base) {
   await openPage(page, base, '/lesson.html?course=js&lesson=js-01');
   await page.waitForSelector('#run-code', { timeout: 15000 });
   await setEditor(page, '#editor-code', 'const saved = 1;');
@@ -798,7 +818,9 @@ async function runUnitChecks(page, base) {
     `asked ${askedToReset}, kept "${afterDismiss}", reset "${afterAccept.slice(0, 24)}"`
   );
   await page.evaluate(() => localStorage.removeItem('kodingu.draft.html-01'));
+}
 
+async function checkUnitProgressRecovery(page, base) {
   await page.evaluate(() => localStorage.setItem('kodingu.progress.v1', '{not json'));
   await openPage(page, base, '/progress.html');
   await page.waitForSelector('#data-status', { timeout: 10000 });
@@ -845,7 +867,9 @@ async function runUnitChecks(page, base) {
     'progress: a new save backs up unreadable data before replacing it',
     JSON.stringify({ backup: preserved.backup, stored: preserved.stored, recovery: preserved.recovery })
   );
+}
 
+async function checkUnitProgressReset(page) {
   await page.evaluate(() => {
     localStorage.setItem('kodingu.progress.v1', '{not json');
     localStorage.setItem('kodingu.certificate.name', 'Test Learner');
@@ -884,7 +908,9 @@ async function runUnitChecks(page, base) {
     'progress: reset clears drafts, the unreadable backup, and the error status',
     JSON.stringify(resetState)
   );
+}
 
+async function checkUnitHeader(page) {
   await page.evaluate(() => {
     localStorage.setItem(
       'kodingu.progress.v1',
@@ -918,7 +944,9 @@ async function runUnitChecks(page, base) {
     'header: the stats strip shows XP and streak without tokens',
     header.stats.join(',')
   );
+}
 
+async function checkUnitStorageFallback(page) {
   const storageFallback = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const originalSetItem = Storage.prototype.setItem;
