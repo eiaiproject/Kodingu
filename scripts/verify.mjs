@@ -1,6 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { startServer } from './dev-server.mjs';
+import { collectHeaders, startServer } from './dev-server.mjs';
 import { runSeries } from './series.mjs';
 import { courses, getAllLessons } from '../assets/js/data/data.js';
 import { courses as indexCourses } from '../assets/js/data/course-index.js';
@@ -415,6 +415,10 @@ async function runChallenge(page, base, challenge) {
 async function runProject(page, base, project) {
   await openPage(page, base, `/project.html?project=${project.id}`);
   await page.waitForSelector('#project-editor', { timeout: 15000 });
+  await page.waitForFunction(
+    () => (document.querySelector('#project-frame')?.srcdoc.length || 0) > 200,
+    { timeout: 10000 }
+  );
   const previewLength = await page.$eval('#project-frame', (frame) => frame.srcdoc.length);
   assert(previewLength > 200, `${project.id}: preview document is built`, `srcdoc length ${previewLength}`);
   const error = await page.$eval('#project-error', (node) => (node.hidden ? '' : node.textContent));
@@ -430,6 +434,18 @@ async function runProject(page, base, project) {
 
 async function runUnitChecks(page, base) {
   await openPage(page, base, '/index.html');
+  await checkUnitLessonTracking(page);
+  await checkUnitProgressTransfer(page);
+  await checkUnitImportSanitizing(page);
+  await checkUnitProgressDataControls(page, base);
+  await checkUnitLessonEditor(page, base);
+  await checkUnitProgressRecovery(page, base);
+  await checkUnitProgressReset(page);
+  await checkUnitHeader(page);
+  await checkUnitStorageFallback(page);
+}
+
+async function checkUnitLessonTracking(page) {
   const streak = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const keyFor = (offset) => {
@@ -513,7 +529,9 @@ async function runUnitChecks(page, base) {
     'progress: version 2 drops the token field',
     JSON.stringify(normalized)
   );
+}
 
+async function checkUnitProgressTransfer(page) {
   const transfer = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     localStorage.setItem('kodingu.progress.v1', JSON.stringify({ version: 0, xp: '40', completed: {} }));
@@ -530,6 +548,7 @@ async function runUnitChecks(page, base) {
     });
     let futureRejected = false;
     let formatRejected = false;
+    let arrayRejected = false;
     try {
       await app.importProgressPayload({ format: 'kodingu-progress', version: 99, progress: {} });
     } catch (error) {
@@ -539,6 +558,11 @@ async function runUnitChecks(page, base) {
       await app.importProgressPayload({ format: 'other', version: 1, progress: {} });
     } catch (error) {
       formatRejected = true;
+    }
+    try {
+      await app.importProgressPayload({ format: 'kodingu-progress', version: 2, progress: [] });
+    } catch (error) {
+      arrayRejected = true;
     }
     const exported = app.createProgressExport();
     const result = {
@@ -550,7 +574,8 @@ async function runUnitChecks(page, base) {
       exportedXp: exported.progress.xp,
       exportedName: exported.profile.certificateName,
       futureRejected,
-      formatRejected
+      formatRejected,
+      arrayRejected
     };
     localStorage.removeItem('kodingu.progress.v1');
     localStorage.removeItem('kodingu.certificate.name');
@@ -572,11 +597,18 @@ async function runUnitChecks(page, base) {
     JSON.stringify(transfer)
   );
   assert(
+    transfer.arrayRejected,
+    'progress: import rejects an array as progress data',
+    JSON.stringify(transfer)
+  );
+  assert(
     transfer.exportedVersion === 2 && transfer.exportedXp === 25 && transfer.exportedName === 'Import Tester',
     'progress: export includes the schema version, progress, and certificate name',
     JSON.stringify(transfer)
   );
+}
 
+async function checkUnitImportSanitizing(page) {
   const sanitized = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const at = new Date().toISOString();
@@ -615,6 +647,145 @@ async function runUnitChecks(page, base) {
     JSON.stringify(sanitized)
   );
 
+  const sanitizedLists = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    const at = new Date().toISOString();
+    const imported = await app.importProgressPayload({
+      format: 'kodingu-progress',
+      version: 2,
+      progress: {
+        streak: 9999,
+        lastLessonDay: '2099-01-01',
+        history: [
+          null,
+          { type: 'lesson', id: 'html-01', title: '<img src=x>', xp: '<img src=x>', at },
+          { type: 'made-up', id: 'html-01', xp: 25, at },
+          { type: 'lesson', id: 'not-a-lesson', xp: 25, at },
+          { type: 'lesson', id: 'html-01', xp: 25, at: 'not-a-date' }
+        ],
+        activity: [
+          null,
+          { type: 'visit', lessonId: 'html-01', at },
+          { type: 'visit', lessonId: 'not-a-lesson', at },
+          { type: 'made-up', lessonId: 'html-01', at }
+        ]
+      }
+    });
+    localStorage.removeItem('kodingu.progress.v1');
+    return {
+      streak: imported.streak,
+      lastLessonDay: imported.lastLessonDay,
+      history: imported.history,
+      activity: imported.activity
+    };
+  });
+  assert(
+    sanitizedLists.streak === 0 && sanitizedLists.lastLessonDay === null,
+    'progress: import clears an impossible streak and a future date',
+    JSON.stringify({ streak: sanitizedLists.streak, lastLessonDay: sanitizedLists.lastLessonDay })
+  );
+  assert(
+    sanitizedLists.history.length === 1 &&
+      sanitizedLists.history[0].id === 'html-01' &&
+      sanitizedLists.history[0].xp === 25 &&
+      sanitizedLists.history[0].title === 'A page is a tree',
+    'progress: import drops malformed history and takes XP and title from the catalog',
+    JSON.stringify(sanitizedLists.history)
+  );
+  assert(
+    sanitizedLists.activity.length === 1 &&
+      sanitizedLists.activity[0].lessonId === 'html-01',
+    'progress: import drops malformed activity entries',
+    JSON.stringify(sanitizedLists.activity)
+  );
+}
+
+async function checkUnitProgressDataControls(page, base) {
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'kodingu.progress.v1',
+      JSON.stringify({
+        version: 2,
+        history: [null],
+        activity: [null],
+        streak: 9999,
+        lastLessonDay: '2099-01-01'
+      })
+    );
+  });
+  await openPage(page, base, '/progress.html');
+  await page.waitForSelector('#reset-progress', { timeout: 10000 });
+  const dataControls = await page.evaluate(() => ({
+    exportButton: Boolean(document.querySelector('#export-progress')),
+    importButton: Boolean(document.querySelector('#import-progress')),
+    resetButton: Boolean(document.querySelector('#reset-progress')),
+    historyCards: document.querySelectorAll('.history-card').length
+  }));
+  assert(
+    dataControls.exportButton && dataControls.importButton && dataControls.resetButton,
+    'progress: data controls stay attached when saved history is corrupt',
+    JSON.stringify(dataControls)
+  );
+  assert(
+    dataControls.historyCards === 0,
+    'progress: corrupt history entries are not rendered',
+    JSON.stringify(dataControls)
+  );
+  await page.evaluate(() => localStorage.removeItem('kodingu.progress.v1'));
+}
+
+async function checkUnitLessonEditor(page, base) {
+  await openPage(page, base, '/lesson.html?course=js&lesson=js-01');
+  await page.waitForSelector('#run-code', { timeout: 15000 });
+  await setEditor(page, '#editor-code', 'const saved = 1;');
+  await page.click('#run-code');
+  const flushedOnRun = await page.evaluate(() => localStorage.getItem('kodingu.draft.js-01'));
+  assert(
+    flushedOnRun === 'const saved = 1;',
+    'draft: running the preview saves the editor immediately',
+    String(flushedOnRun)
+  );
+
+  await setEditor(page, '#editor-code', 'while (true) {}');
+  const loopStarted = Date.now();
+  await page.click('#check-code');
+  await page.waitForFunction(
+    () => {
+      const error = document.querySelector('#script-error');
+      return Boolean(error && !error.hidden && error.textContent.includes('did not finish'));
+    },
+    { timeout: 9000 }
+  );
+  const loopElapsed = Date.now() - loopStarted;
+  const responsive = await page.evaluate(() => 1 + 1);
+  assert(
+    loopElapsed < 9000 && responsive === 2,
+    'runner: an infinite loop is stopped without freezing the page',
+    `${loopElapsed}ms`
+  );
+  await page.evaluate(() => localStorage.removeItem('kodingu.draft.js-01'));
+
+  await page.route('**/assets/js/data/lessons/html-02.js', (route) => route.abort());
+  await openPage(page, base, '/lesson.html?course=html&lesson=html-02');
+  await page.waitForSelector('#lesson-main h1', { timeout: 10000 });
+  const failedLoad = await page.evaluate(() => ({
+    title: document.querySelector('#lesson-main h1')?.textContent.trim(),
+    retry: Boolean(document.querySelector('#retry-lesson'))
+  }));
+  assert(
+    failedLoad.title === 'Lesson could not load' && failedLoad.retry,
+    'lesson: a failed data load is not reported as a missing lesson',
+    JSON.stringify(failedLoad)
+  );
+  const retryRequest = page.waitForRequest(
+    (request) => request.url().includes('/data/lessons/html-02.js'),
+    { timeout: 10000 }
+  );
+  await page.click('#retry-lesson');
+  await retryRequest;
+  pass('lesson: Try again reloads the failed lesson');
+  await page.unroute('**/assets/js/data/lessons/html-02.js');
+
   await openPage(page, base, '/lesson.html?course=html&lesson=html-01');
   await page.waitForSelector('#editor-code', { timeout: 15000 });
   const starter = await page.$eval('#editor-code', (editor) => editor.value);
@@ -647,7 +818,9 @@ async function runUnitChecks(page, base) {
     `asked ${askedToReset}, kept "${afterDismiss}", reset "${afterAccept.slice(0, 24)}"`
   );
   await page.evaluate(() => localStorage.removeItem('kodingu.draft.html-01'));
+}
 
+async function checkUnitProgressRecovery(page, base) {
   await page.evaluate(() => localStorage.setItem('kodingu.progress.v1', '{not json'));
   await openPage(page, base, '/progress.html');
   await page.waitForSelector('#data-status', { timeout: 10000 });
@@ -660,8 +833,84 @@ async function runUnitChecks(page, base) {
     'progress: an unreadable saved record is reported',
     JSON.stringify(readError)
   );
-  await page.evaluate(() => localStorage.removeItem('kodingu.progress.v1'));
 
+  const recovery = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    const exported = app.createProgressExport();
+    return {
+      error: app.getProgressReadError(),
+      raw: exported.recovery?.raw,
+      xp: exported.progress.xp
+    };
+  });
+  assert(
+    recovery.raw === '{not json' && recovery.xp === 0,
+    'progress: export keeps the unreadable record under recovery.raw',
+    JSON.stringify(recovery)
+  );
+
+  const preserved = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    localStorage.setItem('kodingu.progress.v1', '{not json');
+    app.recordActivity('visit', 'html-01');
+    return {
+      backup: localStorage.getItem('kodingu.progress.corrupt.v1'),
+      stored: localStorage.getItem('kodingu.progress.v1'),
+      recovery: app.getProgressRecovery()
+    };
+  });
+  assert(
+    preserved.backup?.includes('{not json') &&
+      preserved.stored &&
+      !preserved.stored.includes('{not json') &&
+      preserved.recovery?.raw === '{not json',
+    'progress: a new save backs up unreadable data before replacing it',
+    JSON.stringify({ backup: preserved.backup, stored: preserved.stored, recovery: preserved.recovery })
+  );
+}
+
+async function checkUnitProgressReset(page) {
+  await page.evaluate(() => {
+    localStorage.setItem('kodingu.progress.v1', '{not json');
+    localStorage.setItem('kodingu.certificate.name', 'Test Learner');
+    localStorage.setItem('kodingu.draft.html-01', 'my old code');
+    localStorage.setItem('kodingu.challengeDraft.extra-html-01', 'challenge draft');
+    localStorage.setItem('kodingu.projectDraft.project-recipe', 'project draft');
+    localStorage.setItem(
+      'kodingu.progress.corrupt.v1',
+      JSON.stringify({ savedAt: new Date().toISOString(), raw: '{not json' })
+    );
+  });
+  await page.click('#reset-progress');
+  await page.click('#reset-progress');
+  const resetState = await page.evaluate(async () => {
+    const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
+    return {
+      xp: app.getProgress().xp,
+      progress: localStorage.getItem('kodingu.progress.v1'),
+      name: localStorage.getItem('kodingu.certificate.name'),
+      backup: localStorage.getItem('kodingu.progress.corrupt.v1'),
+      draft: localStorage.getItem('kodingu.draft.html-01'),
+      challengeDraft: localStorage.getItem('kodingu.challengeDraft.extra-html-01'),
+      projectDraft: localStorage.getItem('kodingu.projectDraft.project-recipe'),
+      status: document.querySelector('#data-status')?.textContent.trim()
+    };
+  });
+  assert(
+    resetState.xp === 0 &&
+      resetState.progress === null &&
+      resetState.name === null &&
+      resetState.backup === null &&
+      resetState.draft === null &&
+      resetState.challengeDraft === null &&
+      resetState.projectDraft === null &&
+      resetState.status === '',
+    'progress: reset clears drafts, the unreadable backup, and the error status',
+    JSON.stringify(resetState)
+  );
+}
+
+async function checkUnitHeader(page) {
   await page.evaluate(() => {
     localStorage.setItem(
       'kodingu.progress.v1',
@@ -695,7 +944,9 @@ async function runUnitChecks(page, base) {
     'header: the stats strip shows XP and streak without tokens',
     header.stats.join(',')
   );
+}
 
+async function checkUnitStorageFallback(page) {
   const storageFallback = await page.evaluate(async () => {
     const app = await import(new URL('/assets/js/core/app.js', window.location.origin).href);
     const originalSetItem = Storage.prototype.setItem;
@@ -902,11 +1153,33 @@ async function checkHeaders(base) {
   const csp = response.headers.get('content-security-policy') || '';
   assert(response.status === 200, 'dev server serves lesson.html');
   assert(csp.includes("script-src 'self' blob:"), 'CSP allows same-origin and blob scripts', csp);
+  assert(csp.includes("worker-src 'self' blob:"), 'CSP allows blob Workers for the script preflight', csp);
   assert(!csp.includes("'unsafe-eval'"), 'CSP no longer allows unsafe-eval', csp);
   assert(csp.includes("frame-ancestors 'none'"), "CSP blocks framing with frame-ancestors 'none'", csp);
   assert(csp.includes("object-src 'none'"), "CSP blocks plugins with object-src 'none'", csp);
   assert(response.headers.get('x-content-type-options') === 'nosniff', 'X-Content-Type-Options is applied');
   assert(response.headers.get('x-frame-options') === 'DENY', 'X-Frame-Options is applied');
+
+  const asset = await fetch(`${base}/assets/js/core/app.js`);
+  const assetCache = asset.headers.get('cache-control') || '';
+  assert(
+    assetCache === 'public, max-age=0, must-revalidate',
+    'assets revalidate instead of mixing conflicting cache rules',
+    assetCache
+  );
+
+  const merged = collectHeaders(
+    [
+      { pattern: '/*', headers: { 'Cache-Control': 'public, max-age=0' } },
+      { pattern: '/assets/*', headers: { 'Cache-Control': 'public, max-age=60' } }
+    ],
+    '/assets/js/core/app.js'
+  );
+  assert(
+    merged['Cache-Control'] === 'public, max-age=0, public, max-age=60',
+    'repeated header rules combine with a comma like Cloudflare Pages',
+    merged['Cache-Control']
+  );
 
   const extensionless = await fetch(`${base}/lesson?course=html&lesson=html-01`);
   const body = await extensionless.text();
@@ -1001,10 +1274,9 @@ async function checkSeo(base) {
     'static lesson: links to the interactive workspace'
   );
   const lessonLd = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(sampleLesson);
-  let lessonLdValid = false;
+  let lessonLdValid = true;
   try {
     JSON.parse(lessonLd[1]);
-    lessonLdValid = true;
   } catch {
     lessonLdValid = false;
   }
@@ -1018,10 +1290,9 @@ async function checkSeo(base) {
   await runSeries(['index.html', 'catalog.html'], async (file) => {
     const html = await (await fetch(`${base}/${file}`)).text();
     const block = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html);
-    let valid = false;
+    let valid = true;
     try {
       JSON.parse(block[1]);
-      valid = true;
     } catch {
       // Invalid structured data is a failed check, not a page error.
       valid = false;
@@ -1072,6 +1343,30 @@ async function checkSeo(base) {
 
 async function checkOffline(base) {
   const browser = await chromium.launch();
+  const themeContext = await browser.newContext();
+  await themeContext.addInitScript(() => {
+    try {
+      localStorage.setItem('kodingu.theme', 'dark');
+    } catch (error) {
+      // A blocked store leaves the offline page on its light default.
+    }
+  });
+  const themePage = await themeContext.newPage();
+  await themePage.goto(`${base}/offline.html`, { waitUntil: 'load' });
+  const offlineTheme = await themePage.evaluate(() => ({
+    theme: document.documentElement.dataset.theme,
+    background: getComputedStyle(document.body).backgroundColor,
+    colorScheme: getComputedStyle(document.documentElement).colorScheme
+  }));
+  assert(
+    offlineTheme.theme === 'dark' &&
+      offlineTheme.background === 'rgb(25, 24, 23)' &&
+      offlineTheme.colorScheme === 'dark',
+    'offline page follows the saved theme',
+    JSON.stringify(offlineTheme)
+  );
+  await themeContext.close();
+
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(`${base}/index.html`, { waitUntil: 'load' });
@@ -1132,7 +1427,7 @@ async function checkOffline(base) {
     assert(pageCached, 'first visit from a static reading page is cached');
 
     await staticContext.setOffline(true);
-    let status = 0;
+    let status;
     let heading = '';
     try {
       const response = await staticPage.reload({ waitUntil: 'domcontentloaded' });
@@ -1182,7 +1477,7 @@ async function checkOffline(base) {
     assert(lessonCached, 'first interactive lesson visit caches its page and data module');
 
     await lessonContext.setOffline(true);
-    let status = 0;
+    let status;
     let heading = '';
     try {
       const response = await lessonPage.reload({ waitUntil: 'domcontentloaded' });

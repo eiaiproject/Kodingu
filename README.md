@@ -1,14 +1,41 @@
 # Kodingu
 
-Kodingu is a free, static learning site for HTML, CSS, and JavaScript. Each lesson explains one idea, then asks you to write code in the browser, run it, and pass a set of checks.
+Kodingu is a free, static learning site for HTML, CSS, and JavaScript. Each lesson explains one idea, then asks you to write code in the browser, run it, and pass a set of checks. The courses start with the basics and build toward complete pages.
 
-**Live site:** [https://kodingu.pages.dev/](https://kodingu.pages.dev/)
+[![Verify](https://github.com/eiaiproject/Kodingu/actions/workflows/verify.yml/badge.svg)](https://github.com/eiaiproject/Kodingu/actions/workflows/verify.yml)
+
+**Live site:** [kodingu.pages.dev](https://kodingu.pages.dev/) · **Source:** [eiaiproject/Kodingu](https://github.com/eiaiproject/Kodingu)
+
+![Kodingu: learn the web by writing it](assets/og-image.png)
 
 There is no account, backend, or AI tutor. Progress, drafts, and preferences stay in `localStorage` on the current browser. No code is uploaded.
 
 ## Contents
 
-- **3 open courses:** HTML, CSS, and JavaScript.
+- [Features](#features)
+- [Stack](#stack)
+- [How it works](#how-it-works)
+- [Courses](#courses)
+- [Practice](#practice)
+- [Progress](#progress)
+- [Using the site](#using-the-site)
+- [Pages](#pages)
+- [Project structure](#project-structure)
+- [Run locally](#run-locally)
+- [Verify](#verify)
+- [Search and sharing](#search-and-sharing)
+- [Deploy](#deploy)
+- [Development workflow](#development-workflow)
+- [Adding or editing content](#adding-or-editing-content)
+- [Local data](#local-data)
+- [Accessibility](#accessibility)
+- [Contributing](#contributing)
+- [Credits and references](#credits-and-references)
+- [License](#license)
+
+## Features
+
+- **3 courses:** HTML, CSS, and JavaScript.
 - **70 lessons:** 32 HTML, 19 CSS, and 19 JavaScript.
 - **1,795 lesson XP:** 815 HTML, 490 CSS, and 490 JavaScript.
 - **4 guided projects:** a recipe page, a reading room, a field notes counter, and a small studio page.
@@ -16,7 +43,7 @@ There is no account, backend, or AI tutor. Progress, drafts, and preferences sta
 - **615 practice XP:** 430 from guided projects and 185 from extra challenges.
 - **In-browser editor:** live preview, run controls, automated checks, hints, and solutions.
 - **Progress:** XP, streak, history, and course certificates, all stored in this browser.
-- **Light and dark themes:** responsive layouts, keyboard controls, and reduced-motion support.
+- **Accessible by default:** light and dark themes, responsive layouts, keyboard controls, and reduced-motion support.
 - **Offline after the first visit:** the shell, styles, scripts, and visited pages are cached. Each lesson data module is cached when you open it; a lesson you have not opened needs a connection.
 - **Readable lesson pages:** every lesson has a static page for search, sharing, and reading without JavaScript.
 
@@ -32,9 +59,11 @@ Kodingu keeps the learning loop in the browser:
 
 1. A page shell loads `core/app.js`, the page controller, and the course index. A lesson then loads only its own data module.
 2. The controller reads the query string, finds the lesson, challenge, or project, and renders it.
-3. The editor writes a preview into a sandboxed iframe. HTML checks parse the markup, CSS checks read the stylesheet and preview, and JavaScript checks run in a separate sandboxed frame.
+3. The editor writes a preview into a sandboxed iframe. HTML checks parse the markup, CSS checks read the stylesheet and preview, and JavaScript checks run in a separate sandboxed frame after a Worker preflight stops scripts that never finish.
 4. A lesson is finished when its quiz is correct and every check passes. A challenge needs every check, and a project needs its self-check list.
 5. Progress is written to `localStorage`. Learner data is not sent to a server.
+
+The JavaScript preflight runs the learner's script in a Worker with a no-op DOM. It only checks that the script finishes. The sandboxed frame still runs the code against the real DOM.
 
 `assets/js/data/course-index.js` is generated from the lesson data so list pages do not import every lesson. The generated files under `assets/js/data/lessons/` hold one module per lesson for the interactive workspace. Run `npm run course-index` after changing any lesson content, title, minutes, or XP. The source of truth remains the files under `assets/js/data/`; `npm run lesson-data` refreshes only the per-lesson modules when you need that.
 
@@ -124,10 +153,14 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 ```text
 .
 ├── .editorconfig
-├── .github/workflows/verify.yml  CI: install, run Chromium, verify
+├── .github/workflows/verify.yml  CI: lint, verify, and audit on Node 22 and 24
+├── .github/dependabot.yml     Weekly npm and Actions updates
 ├── .sonarcloud.properties     SonarCloud scope for course-data duplication
 ├── .gitignore
 ├── README.md                  Project overview and development guide
+├── SECURITY.md                Private vulnerability reporting
+├── THIRD-PARTY-NOTICES.md     Font and icon attribution
+├── LICENSE                    MIT
 ├── index.html                 Landing page
 ├── catalog.html               Course catalog
 ├── course.html                Course detail
@@ -136,8 +169,9 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 ├── challenge.html             Challenge workspace
 ├── projects.html              Guided project list
 ├── project.html               Project workspace
-├── progress.html              Progress, rewards, certificates
+├── progress.html              Progress and certificates
 ├── certificate.html           Printable certificate
+├── offline.html               Offline fallback page
 ├── 404.html                   Not found page
 ├── lessons/                   Generated static reading page per lesson
 ├── _headers                   Cloudflare Pages security headers
@@ -154,7 +188,7 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 │   │   ├── static.css         Reading layout for generated lesson pages
 │   │   └── app.css            Components and page layouts
 │   └── js/
-│       ├── core/              Shared chrome, storage, progress, icons
+│       ├── core/              Shared chrome, storage, SEO, preview, icons
 │       ├── data/              Courses, projects, challenges, test helpers
 │       │   └── lessons/       Generated per-lesson runtime data
 │       ├── editor/            Editor workspace and sandbox runner
@@ -172,16 +206,17 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 │   ├── make-course-index.mjs  Regenerate the course index and per-lesson data
 │   ├── make-lesson-data.mjs   Regenerate data/lessons/ from the lesson data
 │   └── series.mjs             Shared sequential task helper
-├── docs/audits/               Historical design audit notes
+├── LICENSES/                  Full OFL texts for the bundled fonts
 ├── DESIGN.md                  Visual direction and design log
 ├── AGENTS.md                  Notes for coding agents
 ├── package.json               Dev tooling only; the site ships no dependencies
-└── package-lock.json          Locked tooling versions
+├── package-lock.json          Locked tooling versions
+└── eslint.config.js           ESLint rules for the site and tooling
 ```
 
-The audit notes under `docs/audits/` are historical. Paths inside them describe the repository at the time of each audit.
-
 ## Run locally
+
+Requirements: Node.js 22 or newer and npm. The site itself runs in any modern browser; Node is only for the local server and verification tooling.
 
 ES modules and the security headers need an HTTP server. From the project root:
 
@@ -201,12 +236,15 @@ The dev server reads `_headers`, so the browser runs the same CSP as production,
 ```bash
 npm install
 npx playwright install chromium
+npm run lint
 npm run verify
 ```
 
 The harness starts the dev server, checks the content data (unique IDs, XP totals, quiz answers, check functions, previews), the generated course index, the generated per-lesson data, and the generated lesson pages, then drives Chromium through every lesson, challenge, project, and course page. It writes each documented solution into the editor, runs the checks, answers the quiz, finishes the work, and asserts the totals on the progress page. It also checks the CSP headers, the extensionless URLs, the sitemap, skip-link focus, the offline worker, and the home demo.
 
 `node scripts/verify.mjs --only=data` runs a single group. Groups: `data`, `headers`, `seo`, `unit`, `lessons`, `challenges`, `projects`, `pages`, `totals`, `offline`.
+
+`npm run lint` checks the site modules and tooling scripts with ESLint.
 
 `npm run audit` runs a separate Chromium pass for layout, contrast, focus, and compact-control findings.
 
@@ -240,11 +278,17 @@ To deploy the same static site, connect the repository to Cloudflare Pages with 
 
 `_headers` adds the security policy. `sw.js` registers on HTTPS or localhost and provides the offline shell.
 
+### Rollback
+
+Cloudflare Pages keeps every deployment. Open the project's **Deployments** tab, choose the last known good deployment, and use **Rollback to this deployment**. The site has no build step, so the rollback serves the committed files from that deployment.
+
 ### Security headers
 
 `_headers` sets a strict content security policy. `style-src 'unsafe-inline'` stays because progress bars write an inline width and the preview injects its base stylesheet into a sandboxed frame. `frame-ancestors 'none'` and `X-Frame-Options: DENY` both block framing; the header stays for older browsers. `object-src 'none'` blocks plugin content.
 
 HSTS is not set for the `pages.dev` host. When the site moves to a custom domain that is HTTPS-only, add `Strict-Transport-Security: max-age=31536000; includeSubDomains` to `_headers`.
+
+Assets keep revalidating because their file names are not hashed. The service worker keeps its own copy and uses network-first requests for scripts and styles, so a deploy is picked up without a year-long stale cache.
 
 ## Development workflow
 
@@ -254,7 +298,7 @@ HSTS is not set for the `pages.dev` host. When the site moves to a custom domain
 4. Commit and push the branch.
 5. Merge to `main`. A connected Cloudflare Pages project deploys `main` automatically.
 
-`npm run verify` is the main automated check. `npm run audit` adds a browser layout, contrast, and focus pass. Build, lint, and formatting steps do not exist.
+`npm run verify` is the main automated check. `npm run lint` checks the JavaScript. `npm run audit` adds a browser layout, contrast, and focus pass. There is no build or formatting step.
 
 ## Adding or editing content
 
@@ -305,6 +349,10 @@ If the browser blocks local storage, progress stays in memory for the current pa
 
 The site uses semantic landmarks, a skip link that moves focus to main, visible focus styles, keyboard-operable controls, 44px touch targets at 1024px and below and for coarse pointers, WCAG AA contrast checks, light and dark themes, and reduced-motion support.
 
+## Contributing
+
+The repository is [eiaiproject/Kodingu](https://github.com/eiaiproject/Kodingu). Before opening a pull request, run `npm run lint` and `npm run verify`. Keep the site free of a build step and runtime dependencies; [AGENTS.md](AGENTS.md) lists the repository rules.
+
 ## Credits and references
 
 - Icons: [Reicon](https://reicon.dev) (MIT).
@@ -312,3 +360,7 @@ The site uses semantic landmarks, a skip link that moves focus to main, visible 
 - Source: [eiaiproject/Kodingu](https://github.com/eiaiproject/Kodingu).
 - Syllabus references: [MDN Web Docs](https://developer.mozilla.org/en-US/), [W3Schools](https://www.w3schools.com/).
 - Design and copy rules: [anti-slop](https://github.com/miqdadbadjuber/anti-slop).
+
+## License
+
+MIT. See [LICENSE](LICENSE). The bundled fonts are under the SIL Open Font License 1.1; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

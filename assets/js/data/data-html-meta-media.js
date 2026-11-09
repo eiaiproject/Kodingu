@@ -27,17 +27,6 @@ const documentSkeleton = `<!DOCTYPE html>
   </body>
 </html>`;
 
-const mediaSkeleton = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>Field notes</title>
-  </head>
-  <body>
-    <h1>Field notes</h1>
-  </body>
-</html>`;
-
 export const htmlModulesMetaMedia = [
   lessonModule(
     'html-m5',

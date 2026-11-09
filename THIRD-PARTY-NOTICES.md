@@ -8,13 +8,18 @@ following third-party works are included in or served with the site.
 The WOFF2 files in `assets/fonts/` are subsets of fonts published on Google
 Fonts. Each family is licensed under the SIL Open Font License, Version 1.1.
 
-- **Public Sans** — Copyright 2019 The Public Sans Project Authors
-  (<https://github.com/uswds/public-sans>).
-- **Shippori Mincho** — Copyright 2017 The Shippori Mincho Project Authors
-  (<https://github.com/fontdaso/shippori-mincho>).
-- **IBM Plex Mono** — Copyright 2017 IBM Corp.
+- **Public Sans**: Copyright 2015 The Public Sans Project Authors
+  (<https://github.com/uswds/public-sans>). Full license:
+  [LICENSES/public-sans-OFL.txt](LICENSES/public-sans-OFL.txt).
+- **Shippori Mincho**: Copyright 2021 The Shippori Mincho Project Authors
+  (<https://github.com/fontdasu/ShipporiMincho>). Full license:
+  [LICENSES/shippori-mincho-OFL.txt](LICENSES/shippori-mincho-OFL.txt).
+- **IBM Plex Mono**: Copyright © 2017 IBM Corp. with Reserved Font Name "Plex".
+  Full license: [LICENSES/ibm-plex-mono-OFL.txt](LICENSES/ibm-plex-mono-OFL.txt).
 
-SIL Open Font License 1.1: <https://openfontlicense.org/open-font-license-official-text/>
+The full SIL Open Font License 1.1 text is included in `LICENSES/` for each
+family. Reference text:
+<https://openfontlicense.org/open-font-license-official-text/>
 
 ## Icons
 

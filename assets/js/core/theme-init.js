@@ -1,5 +1,5 @@
 (function () {
-  let stored = null;
+  let stored;
   try {
     stored = localStorage.getItem('kodingu.theme');
   } catch (error) {

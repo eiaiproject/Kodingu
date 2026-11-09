@@ -1,4 +1,4 @@
-const CACHE = 'kodingu-v11';
+const CACHE = 'kodingu-v14';
 
 const SHELL = [
   'index.html',
@@ -24,6 +24,11 @@ const SHELL = [
   'assets/fonts/shippori-mincho-500.woff2',
   'assets/fonts/shippori-mincho-600.woff2',
   'assets/js/core/app.js',
+  'assets/js/core/chrome.js',
+  'assets/js/core/html.js',
+  'assets/js/core/preview.js',
+  'assets/js/core/seo.js',
+  'assets/js/core/storage.js',
   'assets/js/pages/catalog.js',
   'assets/js/pages/certificate.js',
   'assets/js/pages/challenge.js',
@@ -46,23 +51,62 @@ const SHELL = [
   'assets/js/editor/workspace.js'
 ];
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(SHELL))
-      .then(() => self.skipWaiting())
+async function openCache() {
+  try {
+    return await caches.open(CACHE);
+  } catch (error) {
+    console.warn('Kodingu: the offline cache is unavailable.', error);
+    return null;
+  }
+}
+
+async function matchCache(cache, request) {
+  if (!cache) return undefined;
+  try {
+    return await cache.match(request);
+  } catch (error) {
+    return undefined;
+  }
+}
+
+async function storeInCache(cache, request, response) {
+  if (!cache || !response.ok) return;
+  try {
+    await cache.put(request, response.clone());
+  } catch (error) {
+    console.warn('Kodingu: a response could not be cached.', error);
+  }
+}
+
+async function precache() {
+  const cache = await openCache();
+  if (!cache) return;
+  await Promise.all(
+    SHELL.map(async (path) => {
+      try {
+        await cache.add(path);
+      } catch (error) {
+        console.warn(`Kodingu: ${path} could not be cached during install.`, error);
+      }
+    })
   );
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(precache().then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
-      )
-      .then(() => self.clients.claim())
+    (async () => {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)));
+      } catch (error) {
+        console.warn('Kodingu: old offline caches could not be cleared.', error);
+      }
+      await self.clients.claim();
+    })()
   );
 });
 
@@ -83,42 +127,42 @@ self.addEventListener('message', (event) => {
 });
 
 async function networkFirst(request) {
-  const cache = await caches.open(CACHE);
+  const cache = await openCache();
   try {
     const response = await fetch(request);
-    if (response.ok) await cache.put(request, response.clone());
+    await storeInCache(cache, request, response);
     return response;
   } catch (error) {
     const url = new URL(request.url);
     const cached =
-      (await cache.match(request)) ||
-      (await cache.match(`${url.pathname}.html`)) ||
-      (await cache.match(`${url.pathname}index.html`)) ||
-      (await cache.match('offline.html'));
+      (await matchCache(cache, request)) ||
+      (await matchCache(cache, `${url.pathname}.html`)) ||
+      (await matchCache(cache, `${url.pathname}index.html`)) ||
+      (await matchCache(cache, 'offline.html'));
     if (cached) return cached;
     throw error;
   }
 }
 
 async function networkFirstAsset(request) {
-  const cache = await caches.open(CACHE);
+  const cache = await openCache();
   try {
     const response = await fetch(request);
-    if (response.ok) await cache.put(request, response.clone());
+    await storeInCache(cache, request, response);
     return response;
   } catch (error) {
-    const cached = await cache.match(request);
+    const cached = await matchCache(cache, request);
     if (cached) return cached;
     throw error;
   }
 }
 
 async function cacheFirst(request) {
-  const cache = await caches.open(CACHE);
-  const cached = await cache.match(request);
+  const cache = await openCache();
+  const cached = await matchCache(cache, request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) await cache.put(request, response.clone());
+  await storeInCache(cache, request, response);
   return response;
 }
 

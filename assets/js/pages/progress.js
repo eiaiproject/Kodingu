@@ -9,6 +9,7 @@ import {
   getCourseStats,
   getProgress,
   getProgressReadError,
+  getProgressRecovery,
   getTodayCount,
   icon,
   importProgressPayload,
@@ -119,7 +120,9 @@ function renderHistory() {
   const mount = document.querySelector('#history-section');
   if (!mount) return;
   const progress = getProgress();
-  const history = progress.history || [];
+  const history = (progress.history || []).filter(
+    (entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
+  );
 
   if (!history.length) {
     mount.innerHTML = `
@@ -158,7 +161,7 @@ function renderHistory() {
               </div>
               <p class="history-card-title"><a href="${href}">${escapeHtml(entry.title || entry.id)}</a></p>
               <div class="history-card-foot">
-                <span class="history-xp">+${entry.xp || 0} XP</span>
+                <span class="history-xp">+${Number(entry.xp) || 0} XP</span>
                 <span class="history-date" title="${escapeHtml(formatFullDate(entry.at))}">${escapeHtml(formatRelativeDate(entry.at))}</span>
               </div>
             </li>
@@ -169,18 +172,30 @@ function renderHistory() {
   `;
 }
 
+function renderSafely(render, label) {
+  try {
+    render();
+  } catch (error) {
+    console.warn(`Kodingu: the ${label} section could not be rendered.`, error);
+  }
+}
+
 function renderAll() {
-  renderStats();
-  renderCourses();
-  renderCertificates();
-  renderHistory();
+  renderSafely(renderStats, 'stats');
+  renderSafely(renderCourses, 'courses');
+  renderSafely(renderCertificates, 'certificates');
+  renderSafely(renderHistory, 'history');
 }
 
 function renderDataNote() {
   const note = document.querySelector('#data-note');
   if (!note) return;
   const readError = getProgressReadError();
+  const recovery = getProgressRecovery();
   if (readError) setDataStatus(readError, true);
+  else if (recovery) {
+    setDataStatus('An older saved record could not be read. Export JSON keeps its raw text under recovery.raw.');
+  }
   if (!storageAvailable()) {
     const message = note.querySelector('p');
     if (message) {
@@ -207,7 +222,11 @@ function exportProgress() {
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setDataStatus('Progress exported. Keep the file somewhere you can find it.');
+  setDataStatus(
+    payload.recovery
+      ? 'Progress exported with the unreadable record under recovery.raw. Keep the file somewhere you can find it.'
+      : 'Progress exported. Keep the file somewhere you can find it.'
+  );
 }
 
 async function importProgress(file) {
@@ -226,7 +245,8 @@ async function importProgress(file) {
 
   const current = getProgress();
   const hasProgress = current.xp > 0 || Object.keys(current.completed).length > 0;
-  if (hasProgress && !window.confirm('Import this file and replace the progress in this browser?')) {
+  const hasSavedRecord = Boolean(getProgressReadError() || getProgressRecovery());
+  if ((hasProgress || hasSavedRecord) && !window.confirm('Import this file and replace the progress in this browser?')) {
     setDataStatus('Import cancelled.');
     return;
   }
@@ -282,5 +302,6 @@ resetButton?.addEventListener('click', () => {
   resetProgress();
   renderAll();
   resetResetButton();
-  toast('Progress cleared.');
+  setDataStatus('');
+  toast('Progress and drafts cleared.');
 });
