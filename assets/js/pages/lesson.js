@@ -51,6 +51,7 @@ const params = new URLSearchParams(window.location.search);
 const courseSummary = getCourse(params.get('course'));
 const lessonSummary = findLesson(courseSummary, params.get('lesson'));
 let found = null;
+let loadFailed = false;
 if (lessonSummary) {
   try {
     const lessonDataUrl = new URL(
@@ -61,6 +62,7 @@ if (lessonSummary) {
     found = { ...lessonSummary, lesson: data.lesson };
     cacheLessonData(lessonDataUrl);
   } catch (error) {
+    loadFailed = true;
     console.warn('Kodingu: lesson data could not be loaded.', error);
   }
 }
@@ -482,6 +484,31 @@ function wireLesson(lesson, quizDone) {
   wireCopyCode(document.querySelector('#lesson-main'));
 }
 
+function renderLoadFailure() {
+  setPageTitle('Lesson could not load');
+  const sidebar = document.querySelector('#lesson-sidebar');
+  const main = document.querySelector('#lesson-main');
+  if (sidebar) sidebar.innerHTML = '';
+  if (!main) return;
+  const courseHref = `course.html?course=${encodeURIComponent(courseSummary?.id || 'html')}`;
+  main.innerHTML = `
+    <div class="page-head">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="catalog.html">Catalog</a>
+        <span class="sep" aria-hidden="true">/</span>
+        <span>Unavailable</span>
+      </nav>
+      <h1>Lesson could not load</h1>
+      <p class="lede">The lesson data did not arrive. If you are offline, this lesson has not been saved on this device yet. Reconnect to the internet and try again.</p>
+      <div class="hero-actions">
+        <button class="button button-primary" id="retry-lesson" type="button">Try again</button>
+        <a class="button button-secondary" href="${courseHref}">Back to the course</a>
+      </div>
+    </div>
+  `;
+  document.querySelector('#retry-lesson')?.addEventListener('click', () => window.location.reload());
+}
+
 function renderNotFound() {
   setPageTitle('Lesson not found');
   const sidebar = document.querySelector('#lesson-sidebar');
@@ -516,6 +543,8 @@ if (found) {
   recordActivity('visit', found.lesson.id);
   renderSidebar();
   renderMain();
+} else if (lessonSummary && loadFailed) {
+  renderLoadFailure();
 } else {
   renderNotFound();
 }

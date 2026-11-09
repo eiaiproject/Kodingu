@@ -50,12 +50,30 @@ export async function loadHeaderRules() {
   }
 }
 
-function matchesPattern(pattern, pathname) {
+export function matchesPattern(pattern, pathname) {
   if (pattern === '/*') return true;
   const source = pattern
     .replace(/[.+^${}()|[\]\\]/g, String.raw`\$&`)
     .replaceAll('*', '.*');
   return new RegExp(`^${source}$`).test(pathname);
+}
+
+// Cloudflare Pages combines repeated headers from every matching rule with a
+// comma instead of letting the last rule win.
+export function collectHeaders(rules, pathname) {
+  const merged = new Map();
+  for (const rule of rules) {
+    if (!matchesPattern(rule.pattern, pathname)) continue;
+    for (const [name, value] of Object.entries(rule.headers)) {
+      const key = name.toLowerCase();
+      const entry = merged.get(key);
+      if (entry) entry.values.push(value);
+      else merged.set(key, { name, values: [value] });
+    }
+  }
+  return Object.fromEntries(
+    [...merged.values()].map(({ name, values }) => [name, values.join(', ')])
+  );
 }
 
 function insideRoot(pathname) {
@@ -90,10 +108,7 @@ export async function startServer({ port = 4173, host = '127.0.0.1' } = {}) {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
     const pathname = url.pathname === '/' ? '/index.html' : url.pathname;
-    const headers = {};
-    for (const rule of rules) {
-      if (matchesPattern(rule.pattern, url.pathname)) Object.assign(headers, rule.headers);
-    }
+    const headers = collectHeaders(rules, url.pathname);
 
     const file = await resolveFile(pathname);
     if (!file) {

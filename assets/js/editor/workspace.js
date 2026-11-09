@@ -1,5 +1,5 @@
 import { buildPreviewDocument, icon, toast } from '../core/app.js';
-import { runJavaScriptLesson } from './js-runner.js';
+import { preflightJavaScript, runJavaScriptLesson } from './js-runner.js';
 
 export function renderScriptError(mount, error) {
   if (!mount) return;
@@ -46,8 +46,13 @@ export function resetChecks() {
 
 export async function runChecks({ language, preview, tests, raw }) {
   if (language === 'js') {
+    if ((await preflightJavaScript(String(raw || ''))) === 'timeout') {
+      const error = new Error('The script did not finish within 4 seconds.');
+      error.name = 'TimeoutError';
+      return { error, results: tests.map(() => false) };
+    }
     const runs = await Promise.all(
-      tests.map((test) => runJavaScriptLesson(raw, preview, [test]))
+      tests.map((test) => runJavaScriptLesson(raw, preview, [test], { preflight: false }))
     );
     const failedRun = runs.find((run) => run.error);
     return {
@@ -151,6 +156,7 @@ export function mountWorkspace(options) {
     checking = true;
     const value = editor.value;
     const request = ++checkSequence;
+    saveDraft();
     beforeCheck?.();
     setCheckPending(true);
     try {
@@ -220,18 +226,23 @@ export function mountWorkspace(options) {
     if (document.visibilityState === 'hidden') flushDraft();
   });
 
+  const runPreviewWithDraft = () => {
+    saveDraft();
+    return runPreview();
+  };
+
   editor?.addEventListener('keydown', (event) => {
     if (!(event.metaKey || event.ctrlKey) || event.key !== 'Enter') return;
     event.preventDefault();
     if (event.shiftKey && checkButton) void checkCode();
-    else void runPreview();
+    else void runPreviewWithDraft();
   });
 
-  runButton?.addEventListener('click', runPreview);
+  runButton?.addEventListener('click', runPreviewWithDraft);
   checkButton?.addEventListener('click', checkCode);
   resetButton?.addEventListener('click', reset);
 
-  return { state, runPreview, checkCode, reset, saveDraft };
+  return { state, runPreview: runPreviewWithDraft, checkCode, reset, saveDraft };
 }
 
 export function wireToggle(buttonSelector, panelSelector, showLabel, hideLabel, onOpen) {
