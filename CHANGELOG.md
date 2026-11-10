@@ -19,7 +19,7 @@ All notable changes to Kodingu are recorded here. The format follows [Keep a Cha
 - The icon set only includes the 20 icons the site uses.
 - Certificate and page renderers use escaped HTML templates and smaller helpers.
 - README claims now match the shipped UI, sitemap, reset behavior, and content files.
-- The service worker cache advances to v19.
+- The service worker cache advances to v20.
 
 ### Removed
 

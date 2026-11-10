@@ -45,7 +45,8 @@
     worker.onerror = () => finish('ok');
     timer = window.setTimeout(() => finish('timeout'), 3800);
   } catch (error) {
-    // A worker that cannot start should not block the real run.
+    // A worker that cannot start is advisory: log it, then let the real run proceed.
+    console.warn('Kodingu: the preflight worker could not start.', error);
     finish('ok');
   }
 })();
