@@ -160,16 +160,9 @@ function refreshHeaderStats() {
   applyHeaderCta();
 }
 
-export function renderHeader() {
-  const mount = document.querySelector('#site-header');
-  if (!mount) return;
-
-  const progress = getProgress();
+function siteHeaderMarkup(progress, theme) {
   const stats = headerStatsMarkup(progress);
-  const theme = readTheme();
-  const page = (window.location.pathname.split('/').pop() || 'index.html').replace(/\.html$/, '') || 'index';
-
-  mount.innerHTML = `
+  return `
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="shell header-inner">
@@ -200,23 +193,9 @@ export function renderHeader() {
       </div>
     </header>
   `;
+}
 
-  mount.querySelectorAll('[data-nav]').forEach((link) => {
-    const targets = (link.dataset.nav || '').split(' ');
-    if (targets.includes(page)) link.setAttribute('aria-current', 'page');
-  });
-  updateHeaderStats(progress);
-  applyHeaderCta(mount);
-
-  updateThemeButton(theme);
-
-  const themeButton = mount.querySelector('#theme-toggle');
-  themeButton?.addEventListener('click', () => {
-    setTheme(readTheme() === 'dark' ? 'light' : 'dark');
-  });
-
-  const nav = mount.querySelector('#site-nav');
-  const navToggle = mount.querySelector('#nav-toggle');
+function wireHeaderNav(nav, navToggle) {
   const closeNav = (restoreFocus = false) => {
     if (!nav || !navToggle) return;
     nav.dataset.open = 'false';
@@ -256,7 +235,32 @@ export function renderHeader() {
   window.addEventListener('resize', () => {
     if (window.innerWidth > 860) closeNav();
   });
+}
 
+export function renderHeader() {
+  const mount = document.querySelector('#site-header');
+  if (!mount) return;
+
+  const progress = getProgress();
+  const theme = readTheme();
+  const page = (window.location.pathname.split('/').pop() || 'index.html').replace(/\.html$/, '') || 'index';
+
+  mount.innerHTML = siteHeaderMarkup(progress, theme);
+
+  mount.querySelectorAll('[data-nav]').forEach((link) => {
+    const targets = (link.dataset.nav || '').split(' ');
+    if (targets.includes(page)) link.setAttribute('aria-current', 'page');
+  });
+  updateHeaderStats(progress);
+  applyHeaderCta(mount);
+  updateThemeButton(theme);
+
+  const themeButton = mount.querySelector('#theme-toggle');
+  themeButton?.addEventListener('click', () => {
+    setTheme(readTheme() === 'dark' ? 'light' : 'dark');
+  });
+
+  wireHeaderNav(mount.querySelector('#site-nav'), mount.querySelector('#nav-toggle'));
   window.addEventListener('kodingu:progress', refreshHeaderStats);
 }
 

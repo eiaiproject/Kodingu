@@ -88,39 +88,8 @@ export function createPreviewRunner({ editor, frame, build, onBuild }) {
   return { runPreview };
 }
 
-export function mountWorkspace(options) {
-  const {
-    editor,
-    frame,
-    errorMount,
-    runButton,
-    checkButton,
-    resetButton,
-    language = 'html',
-    preview = '',
-    tests = [],
-    starter = '',
-    draftKey = '',
-    build,
-    onBuild,
-    beforeCheck,
-    onCheck,
-    onEdit,
-    onReset,
-    resetMessage = 'Editor reset to the starter.'
-  } = options;
-
-  const state = { testsPassed: false };
-  let lastCheckedValue = null;
-  let checkSequence = 0;
-  let checking = false;
+function createDraftStore({ editor, draftKey }) {
   let saveTimer;
-  const { runPreview } = createPreviewRunner({
-    editor,
-    frame,
-    onBuild,
-    build: build || ((value) => buildPreviewDocument(value, { language, preview }))
-  });
 
   const saveDraft = () => {
     if (!draftKey || !editor) return;
@@ -140,16 +109,36 @@ export function mountWorkspace(options) {
     }
   };
 
-  const setCheckPending = (pending) => {
-    if (checkButton) {
-      checkButton.disabled = pending;
-      if (pending) checkButton.setAttribute('aria-busy', 'true');
-      else checkButton.removeAttribute('aria-busy');
-    }
-    if (runButton) runButton.disabled = pending;
-    const summary = document.querySelector('#checks-summary');
-    if (summary && pending) summary.textContent = 'Checking...';
+  const cancelSave = () => window.clearTimeout(saveTimer);
+  const flushDraft = () => {
+    cancelSave();
+    saveDraft();
   };
+  const scheduleSave = () => {
+    cancelSave();
+    saveTimer = window.setTimeout(saveDraft, 400);
+  };
+
+  return { saveDraft, clearDraft, cancelSave, flushDraft, scheduleSave };
+}
+
+function createCheckRunner({
+  editor,
+  language,
+  preview,
+  tests,
+  errorMount,
+  beforeCheck,
+  onCheck,
+  onEdit,
+  runPreview,
+  saveDraft,
+  setCheckPending,
+  state
+}) {
+  let lastCheckedValue = null;
+  let checkSequence = 0;
+  let checking = false;
 
   const checkCode = async () => {
     if (!editor || checking) return [];
@@ -179,37 +168,7 @@ export function mountWorkspace(options) {
     }
   };
 
-  const flushDraft = () => {
-    window.clearTimeout(saveTimer);
-    saveDraft();
-  };
-
-  const reset = () => {
-    if (!editor) return;
-    if (
-      editor.value !== starter &&
-      !window.confirm('Reset the editor to the starter? Your current code will be discarded.')
-    ) {
-      return;
-    }
-    // Cancel any check that started before the reset.
-    checkSequence += 1;
-    checking = false;
-    setCheckPending(false);
-    window.clearTimeout(saveTimer);
-    editor.value = starter;
-    clearDraft();
-    lastCheckedValue = null;
-    state.testsPassed = false;
-    resetChecks();
-    renderScriptError(errorMount, null);
-    onReset?.();
-    void runPreview();
-    toast(resetMessage);
-    editor.focus();
-  };
-
-  editor?.addEventListener('input', () => {
+  const noteEdit = () => {
     if (lastCheckedValue !== null && editor.value !== lastCheckedValue) {
       lastCheckedValue = null;
       state.testsPassed = false;
@@ -217,19 +176,82 @@ export function mountWorkspace(options) {
       onEdit?.();
     }
     renderScriptError(errorMount, null);
-    window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(saveDraft, 400);
+  };
+
+  const resetState = () => {
+    checkSequence += 1;
+    checking = false;
+    setCheckPending(false);
+    lastCheckedValue = null;
+    state.testsPassed = false;
+    resetChecks();
+    renderScriptError(errorMount, null);
+  };
+
+  return { checkCode, noteEdit, resetState };
+}
+
+function updateCheckPending({ checkButton, runButton, pending }) {
+  if (checkButton) {
+    checkButton.disabled = pending;
+    if (pending) checkButton.setAttribute('aria-busy', 'true');
+    else checkButton.removeAttribute('aria-busy');
+  }
+  if (runButton) runButton.disabled = pending;
+  const summary = document.querySelector('#checks-summary');
+  if (summary && pending) summary.textContent = 'Checking...';
+}
+
+function createResetHandler({
+  editor,
+  starter,
+  resetState,
+  cancelSave,
+  clearDraft,
+  onReset,
+  runPreview,
+  resetMessage
+}) {
+  return () => {
+    if (!editor) return;
+    if (
+      editor.value !== starter &&
+      !window.confirm('Reset the editor to the starter? Your current code will be discarded.')
+    ) {
+      return;
+    }
+    resetState();
+    cancelSave();
+    editor.value = starter;
+    clearDraft();
+    onReset?.();
+    void runPreview();
+    toast(resetMessage);
+    editor.focus();
+  };
+}
+
+function wireWorkspace({
+  editor,
+  runButton,
+  checkButton,
+  resetButton,
+  checkCode,
+  reset,
+  noteEdit,
+  scheduleSave,
+  runPreviewWithDraft,
+  flushDraft
+}) {
+  editor?.addEventListener('input', () => {
+    noteEdit();
+    scheduleSave();
   });
 
   window.addEventListener('pagehide', flushDraft);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushDraft();
   });
-
-  const runPreviewWithDraft = () => {
-    saveDraft();
-    return runPreview();
-  };
 
   editor?.addEventListener('keydown', (event) => {
     if (!(event.metaKey || event.ctrlKey) || event.key !== 'Enter') return;
@@ -241,6 +263,83 @@ export function mountWorkspace(options) {
   runButton?.addEventListener('click', runPreviewWithDraft);
   checkButton?.addEventListener('click', checkCode);
   resetButton?.addEventListener('click', reset);
+}
+
+export function mountWorkspace(options) {
+  const {
+    editor,
+    frame,
+    errorMount,
+    runButton,
+    checkButton,
+    resetButton,
+    language = 'html',
+    preview = '',
+    tests = [],
+    starter = '',
+    draftKey = '',
+    build,
+    onBuild,
+    beforeCheck,
+    onCheck,
+    onEdit,
+    onReset,
+    resetMessage = 'Editor reset to the starter.'
+  } = options;
+
+  const state = { testsPassed: false };
+  const { runPreview } = createPreviewRunner({
+    editor,
+    frame,
+    onBuild,
+    build: build || ((value) => buildPreviewDocument(value, { language, preview }))
+  });
+  const { saveDraft, clearDraft, cancelSave, flushDraft, scheduleSave } = createDraftStore({
+    editor,
+    draftKey
+  });
+  const setCheckPending = (pending) => updateCheckPending({ checkButton, runButton, pending });
+  const { checkCode, noteEdit, resetState } = createCheckRunner({
+    editor,
+    language,
+    preview,
+    tests,
+    errorMount,
+    beforeCheck,
+    onCheck,
+    onEdit,
+    runPreview,
+    saveDraft,
+    setCheckPending,
+    state
+  });
+  const reset = createResetHandler({
+    editor,
+    starter,
+    resetState,
+    cancelSave,
+    clearDraft,
+    onReset,
+    runPreview,
+    resetMessage
+  });
+  const runPreviewWithDraft = () => {
+    saveDraft();
+    return runPreview();
+  };
+
+  wireWorkspace({
+    editor,
+    runButton,
+    checkButton,
+    resetButton,
+    checkCode,
+    reset,
+    noteEdit,
+    scheduleSave,
+    runPreviewWithDraft,
+    flushDraft
+  });
 
   return { state, runPreview: runPreviewWithDraft, checkCode, reset, saveDraft };
 }

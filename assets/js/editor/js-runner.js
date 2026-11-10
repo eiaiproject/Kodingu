@@ -1,4 +1,5 @@
 const CHANNEL = 'kodingu-runner';
+const PREFLIGHT_CHANNEL = 'kodingu-preflight';
 const TIMEOUT = 10000;
 const PREFLIGHT_TIMEOUT = 4000;
 let sequence = 0;
@@ -16,95 +17,77 @@ function timeoutError(seconds) {
   return error;
 }
 
-// The preflight runs the learner's script in a Worker before the sandboxed
-// iframe exists. A no-op DOM keeps ordinary lessons running, and a script that
-// never finishes is terminated here instead of blocking the page thread.
-const PREFLIGHT_PREAMBLE = String.raw`
-const fakeNode = (() => {
-  let proxy;
-  let list;
-  const node = function () {};
-  proxy = new Proxy(node, {
-    get(target, key) {
-      if (key === Symbol.iterator) return function* () {};
-      if (key === Symbol.toPrimitive) return () => '';
-      if (key === 'length') return 0;
-      if (key === 'textContent' || key === 'innerHTML' || key === 'value' || key === 'href' || key === 'src') return '';
-      if (key === 'querySelectorAll') return () => list;
-      if (key === 'children' || key === 'childNodes') return [];
-      if (key === 'querySelector' || key === 'getElementById' || key === 'createElement' || key === 'closest' || key === 'appendChild' || key === 'append' || key === 'prepend' || key === 'remove' || key === 'setAttribute' || key === 'focus' || key === 'click' || key === 'add' || key === 'toggle') return () => proxy;
-      if (key === 'classList' || key === 'style' || key === 'dataset') return proxy;
-      if (key === 'addEventListener' || key === 'removeEventListener') return () => {};
-      if (key === 'getAttribute') return () => '';
-      if (key === 'hasAttribute' || key === 'contains') return () => false;
-      return proxy;
-    },
-    set() { return true; },
-    apply() { return proxy; }
-  });
-  list = new Proxy([], {
-    get(target, key) {
-      if (key === Symbol.iterator) return function* () {};
-      if (key === 'item') return () => proxy;
-      if (typeof key === 'string' && /^\d+$/.test(key)) return proxy;
-      return Reflect.get(target, key);
-    }
-  });
-  return proxy;
-})();
-try {
-  self.document = fakeNode;
-  self.window = self;
-  self.localStorage = fakeNode;
-  self.alert = () => {};
-  self.confirm = () => true;
-  self.prompt = () => '';
-  self.fetch = () => Promise.reject(new Error('Network is disabled during the preflight.'));
-  self.XMLHttpRequest = function () { throw new Error('Network is disabled during the preflight.'); };
-  self.WebSocket = self.XMLHttpRequest;
-  self.EventSource = self.XMLHttpRequest;
-  self.importScripts = () => {};
-  self.close = () => {};
-} catch (error) {}
-try {
-`;
+// The preflight runs in a worker created inside a sandboxed frame. The worker
+// inherits an opaque origin, so learner code never reaches site storage, and it
+// runs off the page thread, so an endless loop can be terminated.
+let workerSourcePromise;
 
-function preflightPostamble(token) {
-  return `
-} catch (error) {}
-setTimeout(() => self.postMessage(${JSON.stringify(token)}), 150);
-`;
+function loadWorkerSource() {
+  if (!workerSourcePromise) {
+    workerSourcePromise = fetch('/assets/js/editor/preflight-worker.js')
+      .then((response) => {
+        if (!response.ok) throw new Error(`Preflight worker returned ${response.status}.`);
+        return response.text();
+      })
+      .catch((error) => {
+        workerSourcePromise = null;
+        throw error;
+      });
+  }
+  return workerSourcePromise;
 }
 
-export function preflightJavaScript(source) {
-  if (typeof Worker === 'undefined' || typeof Blob === 'undefined') {
-    return Promise.resolve('ok');
+function preflightDocument(source, token, workerSource) {
+  const encodedPayload = JSON.stringify({
+    source,
+    token,
+    workerSource,
+    targetOrigin: window.location.origin
+  }).replaceAll('<', String.raw`\u003c`);
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body data-kodingu-preflight-token="${token}" data-kodingu-preflight-target-origin="${window.location.origin}">
+<script data-kodingu-preflight type="application/json" id="kodingu-preflight-source">${encodedPayload}</script>
+<script data-kodingu-preflight src="/assets/js/editor/preflight-frame.js"></script>
+</body></html>`;
+}
+
+export async function preflightJavaScript(source) {
+  if (typeof Worker === 'undefined') return 'ok';
+  let workerSource;
+  try {
+    workerSource = await loadWorkerSource();
+  } catch (error) {
+    console.warn('Kodingu: the script preflight could not load.', error);
+    return 'ok';
   }
   return new Promise((resolve) => {
-    let worker = null;
-    let workerUrl = '';
+    let frame = null;
+    let onMessage = null;
     let timer = 0;
     let settled = false;
     const finish = (result) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
-      if (worker) worker.terminate();
-      if (workerUrl) URL.revokeObjectURL(workerUrl);
+      if (onMessage) window.removeEventListener('message', onMessage);
+      frame?.remove();
       resolve(result);
     };
     try {
       const token = `preflight-${++sequence}`;
-      workerUrl = URL.createObjectURL(
-        new Blob([PREFLIGHT_PREAMBLE, source, preflightPostamble(token)], {
-          type: 'text/javascript'
-        })
-      );
-      worker = new Worker(workerUrl);
-      worker.onmessage = (event) => {
-        if (event.data === token) finish('ok');
+      frame = document.createElement('iframe');
+      frame.setAttribute('sandbox', 'allow-scripts');
+      frame.setAttribute('aria-hidden', 'true');
+      frame.tabIndex = -1;
+      frame.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;';
+      onMessage = (event) => {
+        if (event.source !== frame.contentWindow) return;
+        const data = event.data;
+        if (data?.channel !== PREFLIGHT_CHANNEL || data.token !== token) return;
+        finish(data.result === 'timeout' ? 'timeout' : 'ok');
       };
-      worker.onerror = () => finish('ok');
+      window.addEventListener('message', onMessage);
+      frame.srcdoc = preflightDocument(source, token, workerSource);
+      document.body.append(frame);
       timer = window.setTimeout(() => finish('timeout'), PREFLIGHT_TIMEOUT);
     } catch (error) {
       console.warn('Kodingu: the script preflight could not start.', error);

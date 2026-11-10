@@ -123,24 +123,8 @@ function unfinishedPanelMarkup(checks) {
     `;
 }
 
-function renderMain() {
-  if (!main || !project) return;
-  const progress = getProgress();
-  const completed = Boolean(progress.completedProjects[project.id]);
-  const checks = new Set(getProjectChecks(project));
-  const draft = readDraft() ?? project.starter;
-  const next = nextProject();
-  const related = project.related
-    .map(
-      (item) => `<a href="lesson.html?course=${encodeURIComponent(item.course)}&amp;lesson=${encodeURIComponent(item.lesson)}">${escapeHtml(item.label)}</a>`
-    )
-    .join(' ');
-  const finishMarkup = completed ? completedPanelMarkup(progress) : unfinishedPanelMarkup(checks);
-  const nextMarkup = next
-    ? `<a class="lesson-nav-next" href="project.html?project=${encodeURIComponent(next.id)}"><span class="lesson-nav-label">Next project</span><span>${escapeHtml(next.title)}</span></a>`
-    : '<a class="lesson-nav-next" href="projects.html"><span class="lesson-nav-label">Library</span><span>All projects</span></a>';
-
-  main.innerHTML = `
+function projectHeaderMarkup(project, completed) {
+  return `
     <header class="lesson-head">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="catalog.html">Catalog</a>
@@ -162,7 +146,11 @@ function renderMain() {
         <p>${escapeHtml(project.summary)}</p>
       </div>
     </header>
+  `;
+}
 
+function projectBriefMarkup(project, related) {
+  return `
     <section class="theory" aria-labelledby="brief-heading">
       <h2 id="brief-heading">What you will build</h2>
       <p>${escapeHtml(project.description)}</p>
@@ -188,7 +176,11 @@ function renderMain() {
 
       <p class="project-related">Related lessons: ${related}</p>
     </section>
+  `;
+}
 
+function projectWorkspaceMarkup(project, draft) {
+  return `
     <section class="exercise" aria-labelledby="workspace-heading">
       <div class="exercise-head">
         <h2 id="workspace-heading">Workspace</h2>
@@ -220,7 +212,11 @@ function renderMain() {
         <output class="editor-error" id="project-error" hidden></output>
       </div>
     </section>
+  `;
+}
 
+function projectChecklistMarkup(project, checks, completed) {
+  return `
     <section class="exercise" aria-labelledby="checklist-heading">
       <div class="exercise-head">
         <h2 id="checklist-heading">Self-check</h2>
@@ -241,13 +237,42 @@ function renderMain() {
           .join('')}
       </fieldset>
     </section>
+  `;
+}
 
-    ${finishMarkup}
-
+function projectNavMarkup(next) {
+  const nextMarkup = next
+    ? `<a class="lesson-nav-next" href="project.html?project=${encodeURIComponent(next.id)}"><span class="lesson-nav-label">Next project</span><span>${escapeHtml(next.title)}</span></a>`
+    : '<a class="lesson-nav-next" href="projects.html"><span class="lesson-nav-label">Library</span><span>All projects</span></a>';
+  return `
     <nav class="lesson-nav" aria-label="Project navigation">
       <a href="projects.html"><span class="lesson-nav-label">Library</span><span>All projects</span></a>
       ${nextMarkup}
     </nav>
+  `;
+}
+
+function renderMain() {
+  if (!main || !project) return;
+  const progress = getProgress();
+  const completed = Boolean(progress.completedProjects[project.id]);
+  const checks = new Set(getProjectChecks(project));
+  const draft = readDraft() ?? project.starter;
+  const next = nextProject();
+  const related = project.related
+    .map(
+      (item) => `<a href="lesson.html?course=${encodeURIComponent(item.course)}&amp;lesson=${encodeURIComponent(item.lesson)}">${escapeHtml(item.label)}</a>`
+    )
+    .join(' ');
+  const finishMarkup = completed ? completedPanelMarkup(progress) : unfinishedPanelMarkup(checks);
+
+  main.innerHTML = `
+    ${projectHeaderMarkup(project, completed)}
+    ${projectBriefMarkup(project, related)}
+    ${projectWorkspaceMarkup(project, draft)}
+    ${projectChecklistMarkup(project, checks, completed)}
+    ${finishMarkup}
+    ${projectNavMarkup(next)}
   `;
 
   wireWorkspace();

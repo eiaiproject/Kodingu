@@ -93,7 +93,7 @@ Examples:
 - **Empty and error states:** progress can be empty and a URL can be wrong, so both are designed instead of leaving a blank panel.
 - **HTML before CSS:** a complete HTML course is more useful than three empty catalogs, so HTML opened first.
 - **CSS foundations before layout:** selectors, the cascade, color, type, and the box model are the base for flexbox and responsive work, so they come first.
-- **JavaScript runs in a sandboxed frame:** the learner's code can change a page and be checked without touching the site UI, and the main page never evaluates learner code.
+- **JavaScript runs in sandboxed frames:** the preflight uses a worker inside a sandboxed frame, and the real run uses another sandboxed frame, so the main page never evaluates learner code and no learner code reaches site storage.
 - **No economy on top of learning:** tokens, a weekly league, daily missions, and freeze chests added state to maintain without making the next lesson better, so progress stays XP, streak, history, and certificates.
 - **Certificates are local records:** the page prints a real record of finished work and says plainly that Kodingu does not verify it.
 - **Projects use one file:** a project should be openable after download without a build step, so the workspace and the saved file stay the same HTML document.

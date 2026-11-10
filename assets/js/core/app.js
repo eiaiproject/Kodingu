@@ -1,6 +1,6 @@
 import { courses } from '../data/course-index.js';
 
-export { escapeHtml } from './html.js';
+export { escapeHtml, html, raw } from './html.js';
 export * from './storage.js';
 export * from './chrome.js';
 export * from './seo.js';

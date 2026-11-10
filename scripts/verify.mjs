@@ -1153,12 +1153,25 @@ async function checkHeaders(base) {
   const csp = response.headers.get('content-security-policy') || '';
   assert(response.status === 200, 'dev server serves lesson.html');
   assert(csp.includes("script-src 'self' blob:"), 'CSP allows same-origin and blob scripts', csp);
-  assert(csp.includes("worker-src 'self' blob:"), 'CSP allows blob Workers for the script preflight', csp);
+  assert(csp.includes("worker-src 'self' blob:"), 'CSP allows the sandboxed preflight worker', csp);
+  assert(csp.includes("frame-src 'self' data: blob:"), 'CSP allows the sandboxed preflight frame', csp);
   assert(!csp.includes("'unsafe-eval'"), 'CSP no longer allows unsafe-eval', csp);
   assert(csp.includes("frame-ancestors 'none'"), "CSP blocks framing with frame-ancestors 'none'", csp);
   assert(csp.includes("object-src 'none'"), "CSP blocks plugins with object-src 'none'", csp);
   assert(response.headers.get('x-content-type-options') === 'nosniff', 'X-Content-Type-Options is applied');
   assert(response.headers.get('x-frame-options') === 'DENY', 'X-Frame-Options is applied');
+  assert(
+    response.headers.get('cross-origin-opener-policy') === 'same-origin',
+    'Cross-Origin-Opener-Policy is applied'
+  );
+
+  const font = await fetch(`${base}/assets/fonts/public-sans.woff2`);
+  const fontCache = font.headers.get('cache-control') || '';
+  assert(
+    fontCache === 'public, max-age=31536000, immutable',
+    'fonts use a long immutable cache',
+    fontCache
+  );
 
   const asset = await fetch(`${base}/assets/js/core/app.js`);
   const assetCache = asset.headers.get('cache-control') || '';
@@ -1179,6 +1192,23 @@ async function checkHeaders(base) {
     merged['Cache-Control'] === 'public, max-age=0, public, max-age=60',
     'repeated header rules combine with a comma like Cloudflare Pages',
     merged['Cache-Control']
+  );
+
+  const detached = collectHeaders(
+    [
+      { pattern: '/*', headers: { 'Cache-Control': 'public, max-age=0' } },
+      {
+        pattern: '/assets/fonts/*',
+        remove: ['cache-control'],
+        headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }
+      }
+    ],
+    '/assets/fonts/public-sans.woff2'
+  );
+  assert(
+    detached['Cache-Control'] === 'public, max-age=31536000, immutable',
+    'a header detach replaces the general cache rule',
+    detached['Cache-Control']
   );
 
   const extensionless = await fetch(`${base}/lesson?course=html&lesson=html-01`);
