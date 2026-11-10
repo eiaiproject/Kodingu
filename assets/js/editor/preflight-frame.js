@@ -45,6 +45,7 @@
     worker.onerror = () => finish('ok');
     timer = window.setTimeout(() => finish('timeout'), 3800);
   } catch (error) {
+    // A worker that cannot start should not block the real run.
     finish('ok');
   }
 })();
