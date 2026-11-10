@@ -1,6 +1,7 @@
 (() => {
   const payloadNode = document.getElementById('kodingu-preflight-source');
   let token = document.body.dataset.kodinguPreflightToken || '';
+  let targetOrigin = document.body.dataset.kodinguPreflightTargetOrigin || '';
   let finished = false;
   let worker = null;
   let workerUrl = '';
@@ -12,17 +13,21 @@
     window.clearTimeout(timer);
     worker?.terminate();
     if (workerUrl) URL.revokeObjectURL(workerUrl);
-    parent.postMessage({ channel: 'kodingu-preflight', token, result }, '*');
+    if (targetOrigin) {
+      parent.postMessage({ channel: 'kodingu-preflight', token, result }, targetOrigin);
+    }
   };
 
   let payload;
   try {
     payload = JSON.parse(payloadNode?.textContent || '{}');
   } catch (error) {
+    // A malformed payload should not block the real run.
     finish('ok');
     return;
   }
   token = String(payload.token || token);
+  targetOrigin = String(payload.targetOrigin || targetOrigin);
   const source = String(payload.source || '');
   const workerSource = String(payload.workerSource || '');
 

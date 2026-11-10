@@ -21,28 +21,33 @@ const TYPES = {
   '.webmanifest': 'application/manifest+json'
 };
 
+function addHeaderRemoval(rule, line) {
+  const name = line.slice(1).trim().toLowerCase();
+  if (name) rule.remove.push(name);
+}
+
+function addHeaderValue(rule, line) {
+  const colon = line.indexOf(':');
+  if (colon === -1) return;
+  const name = line.slice(0, colon).trim();
+  const value = line.slice(colon + 1).trim();
+  if (name && value) rule.headers[name] = value;
+}
+
 function parseHeaderRules(source) {
   const rules = [];
   let current = null;
-  for (const line of source.split(/\r?\n/)) {
-    if (!line.trim() || line.trim().startsWith('#')) continue;
-    if (!/^\s/.test(line)) {
-      current = { pattern: line.trim(), headers: {}, remove: [] };
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    if (!/^\s/.test(rawLine)) {
+      current = { pattern: line, headers: {}, remove: [] };
       rules.push(current);
       continue;
     }
     if (!current) continue;
-    const trimmed = line.trim();
-    if (trimmed.startsWith('!')) {
-      const name = trimmed.slice(1).trim();
-      if (name) current.remove.push(name.toLowerCase());
-      continue;
-    }
-    const colon = line.indexOf(':');
-    if (colon === -1) continue;
-    const name = line.slice(0, colon).trim();
-    const value = line.slice(colon + 1).trim();
-    if (name && value) current.headers[name] = value;
+    if (line.startsWith('!')) addHeaderRemoval(current, line);
+    else addHeaderValue(current, rawLine);
   }
   return rules;
 }

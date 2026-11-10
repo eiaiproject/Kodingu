@@ -4,7 +4,9 @@
 const fakeNode = (() => {
   let proxy;
   let list;
-  const node = function () {};
+  const node = function () {
+    return undefined;
+  };
   proxy = new Proxy(node, {
     get(target, key) {
       if (key === Symbol.iterator) return function* () {};

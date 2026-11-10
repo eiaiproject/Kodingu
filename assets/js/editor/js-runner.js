@@ -38,11 +38,13 @@ function loadWorkerSource() {
 }
 
 function preflightDocument(source, token, workerSource) {
-  const encodedPayload = JSON.stringify({ source, token, workerSource }).replaceAll(
-    '<',
-    String.raw`\u003c`
-  );
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body data-kodingu-preflight-token="${token}">
+  const encodedPayload = JSON.stringify({
+    source,
+    token,
+    workerSource,
+    targetOrigin: window.location.origin
+  }).replaceAll('<', String.raw`\u003c`);
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body data-kodingu-preflight-token="${token}" data-kodingu-preflight-target-origin="${window.location.origin}">
 <script data-kodingu-preflight type="application/json" id="kodingu-preflight-source">${encodedPayload}</script>
 <script data-kodingu-preflight src="/assets/js/editor/preflight-frame.js"></script>
 </body></html>`;
