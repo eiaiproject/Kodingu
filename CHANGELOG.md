@@ -21,6 +21,10 @@ All notable changes to Kodingu are recorded here. The format follows [Keep a Cha
 - README claims now match the shipped UI, sitemap, reset behavior, and content files.
 - The service worker cache advances to v19.
 
+### Removed
+
+- The historical review document and local audit artifacts.
+
 ## [1.0.0] - 2026-11-01
 
 ### Added
