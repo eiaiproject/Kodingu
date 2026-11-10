@@ -2,7 +2,7 @@
 
 Kodingu is a free, static learning site for HTML, CSS, and JavaScript. Each lesson explains one idea, then asks you to write code in the browser, run it, and pass a set of checks. The courses start with the basics and build toward complete pages.
 
-[![Verify](https://github.com/eiaiproject/Kodingu/actions/workflows/verify.yml/badge.svg)](https://github.com/eiaiproject/Kodingu/actions/workflows/verify.yml)
+[![Verify](https://github.com/eiaiproject/Kodingu/actions/workflows/verify.yml/badge.svg)](https://github.com/eiaiproject/Kodingu/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Live site:** [kodingu.pages.dev](https://kodingu.pages.dev/) · **Source:** [eiaiproject/Kodingu](https://github.com/eiaiproject/Kodingu)
 
@@ -49,7 +49,7 @@ There is no account, backend, or AI tutor. Progress, drafts, and preferences sta
 
 ## Stack
 
-Plain HTML, CSS, and JavaScript with ES modules. No framework, build step, or runtime dependency ships with the site. Icons are generated from Reicon, and the three fonts are self-hosted as Latin woff2 subsets. `package.json` exists only for local verification tooling.
+Plain HTML, CSS, and JavaScript with ES modules. No framework, build step, or runtime dependency ships with the site. Icons are generated from Reicon, and the three fonts are self-hosted as Latin woff2 subsets. `package.json` exists only for local development and verification tooling.
 
 The site runs in modern browsers with ES modules and service workers. Without a service worker it still works online; offline support is the extra layer.
 
@@ -59,11 +59,11 @@ Kodingu keeps the learning loop in the browser:
 
 1. A page shell loads `core/app.js`, the page controller, and the course index. A lesson then loads only its own data module.
 2. The controller reads the query string, finds the lesson, challenge, or project, and renders it.
-3. The editor writes a preview into a sandboxed iframe. HTML checks parse the markup, CSS checks read the stylesheet and preview, and JavaScript checks run in a separate sandboxed frame after a Worker preflight stops scripts that never finish.
+3. The editor writes a preview into a sandboxed iframe. HTML checks parse the markup, CSS checks read the stylesheet and preview, and JavaScript checks run in a separate sandboxed frame after a sandboxed preflight stops scripts that never finish.
 4. A lesson is finished when its quiz is correct and every check passes. A challenge needs every check, and a project needs its self-check list.
 5. Progress is written to `localStorage`. Learner data is not sent to a server.
 
-The JavaScript preflight runs the learner's script in a Worker with a no-op DOM. It only checks that the script finishes. The sandboxed frame still runs the code against the real DOM.
+The JavaScript preflight runs the learner's script in a worker created inside a hidden sandboxed frame, with network access stubbed out. The worker's opaque origin keeps site storage out of reach, and running off the page thread lets the preflight terminate a script that never finishes. It only checks that the script finishes. The visible sandboxed frame still runs the code against the real DOM.
 
 `assets/js/data/course-index.js` is generated from the lesson data so list pages do not import every lesson. The generated files under `assets/js/data/lessons/` hold one module per lesson for the interactive workspace. Run `npm run course-index` after changing any lesson content, title, minutes, or XP. The source of truth remains the files under `assets/js/data/`; `npm run lesson-data` refreshes only the per-lesson modules when you need that.
 
@@ -153,11 +153,21 @@ On Cloudflare Pages, page URLs are served without the `.html` extension. For exa
 ```text
 .
 ├── .editorconfig
-├── .github/workflows/verify.yml  CI: lint, verify, and audit on Node 22 and 24
-├── .github/dependabot.yml     Weekly npm and Actions updates
+├── .github/
+│   ├── CODEOWNERS             Default reviewer for every path
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   ├── ISSUE_TEMPLATE/        Bug and content issue forms
+│   ├── dependabot.yml         Weekly npm and Actions updates
+│   └── workflows/
+│       ├── verify.yml         CI: lint, verify, and audits on Node 22 and 24
+│       ├── codeql.yml         CodeQL analysis
+│       └── secret-scan.yml    gitleaks scan of repository history
 ├── .sonarcloud.properties     SonarCloud scope for course-data duplication
 ├── .gitignore
 ├── README.md                  Project overview and development guide
+├── CHANGELOG.md               Release notes
+├── CONTRIBUTING.md            Setup, checks, and contribution workflow
+├── CODE_OF_CONDUCT.md         Community expectations
 ├── SECURITY.md                Private vulnerability reporting
 ├── THIRD-PARTY-NOTICES.md     Font and icon attribution
 ├── LICENSE                    MIT
@@ -229,7 +239,7 @@ Open [http://localhost:4173/](http://localhost:4173/).
 
 The dev server reads `_headers`, so the browser runs the same CSP as production, and it resolves `/lesson` to `lesson.html` and `/lessons/html-01` to `lessons/html-01.html` the way Cloudflare Pages does. `PORT` and `HOST` override the defaults.
 
-`python3 -m http.server 4173` also works for a quick look, but it ignores `_headers` and the extensionless URLs, so the security policy and the script runner cannot be tested that way.
+`python3 -m http.server 4173` also works for a quick look, but it ignores `_headers` and the extensionless URLs, so the production CSP and extensionless routing cannot be tested that way.
 
 ## Verify
 
@@ -246,7 +256,7 @@ The harness starts the dev server, checks the content data (unique IDs, XP total
 
 `npm run lint` checks the site modules and tooling scripts with ESLint.
 
-`npm run audit` runs a separate Chromium pass for layout, contrast, focus, and compact-control findings.
+`npm run audit:ui` runs a separate Chromium pass for layout, contrast, focus, and compact-control findings. `npm run audit:deps` runs `npm audit --omit=dev`, which is clear because the site ships no runtime dependencies.
 
 SonarCloud runs automatic analysis for pull requests. `.sonarcloud.properties` keeps course data and the generated index out of copy-paste detection because they share a deliberate schema; runtime code remains in the duplication metric.
 
@@ -254,12 +264,12 @@ Chromium needs system libraries. If it cannot start, run `npx playwright install
 
 ## Search and sharing
 
-Every page carries a description, a canonical URL, Open Graph and Twitter tags, and a robots rule. The home page and catalog also carry JSON-LD (WebSite and an ItemList of Course). Course, lesson, project, challenge, and certificate pages rewrite the canonical URL, title, and description at runtime from the page path and the canonical origin.
+Every indexable page carries a description, a canonical URL, Open Graph and Twitter tags, and a robots rule. The offline and 404 pages are noindex and carry only the metadata they need. The home page and catalog also carry JSON-LD (WebSite and an ItemList of Course). Course, lesson, project, challenge, and certificate pages rewrite the canonical URL, title, and description at runtime from the page path and the canonical origin.
 
 - `assets/og-image.png` is the 1200x630 share image. Rebuild it with `npm run og-image`.
 - `lessons/{id}.html` is the readable version of every lesson. It carries the theory, the goal, the challenge prompt, previous and next links, and `LearningResource` JSON-LD. It works without JavaScript. Rebuild these pages with `npm run pages`.
 - The interactive workspace at `/lesson?course=...` canonicalizes to its reading page at `/lessons/{id}`. Search engines see one lesson URL, and every reading page links to the workspace.
-- `sitemap.xml` lists every public course, reading page, project, and challenge. Rebuild it with `npm run sitemap` after adding content.
+- `sitemap.xml` lists the home page, catalog, practice and projects indexes, course pages, and every lesson reading page. The project, challenge, progress, and certificate pages are noindex and stay out of it. Rebuild it with `npm run sitemap` after adding content.
 - `robots.txt` points crawlers at the sitemap, and `404.html` is marked noindex.
 
 The reading pages are generated files, not request-time prerendering. They are committed and served as-is, so the deploy still has no build step.
@@ -288,7 +298,7 @@ Cloudflare Pages keeps every deployment. Open the project's **Deployments** tab,
 
 HSTS is not set for the `pages.dev` host. When the site moves to a custom domain that is HTTPS-only, add `Strict-Transport-Security: max-age=31536000; includeSubDomains` to `_headers`.
 
-Assets keep revalidating because their file names are not hashed. The service worker keeps its own copy and uses network-first requests for scripts and styles, so a deploy is picked up without a year-long stale cache.
+HTML, scripts, and styles keep revalidating because their file names are not hashed. Font files carry a one-year immutable cache; rename a font file when its contents change. The service worker keeps its own copy and uses network-first requests for scripts and styles, so a deploy is picked up without a year-long stale cache. `Cross-Origin-Opener-Policy: same-origin` isolates the top-level document from cross-origin openers.
 
 ## Development workflow
 
@@ -298,7 +308,9 @@ Assets keep revalidating because their file names are not hashed. The service wo
 4. Commit and push the branch.
 5. Merge to `main`. A connected Cloudflare Pages project deploys `main` automatically.
 
-`npm run verify` is the main automated check. `npm run lint` checks the JavaScript. `npm run audit` adds a browser layout, contrast, and focus pass. There is no build or formatting step.
+`npm run verify` is the main automated check. `npm run lint` checks the JavaScript. `npm run audit:ui` adds a browser layout, contrast, and focus pass. There is no build or formatting step.
+
+CI runs the same checks on Node 22 and 24, plus `npm run audit:deps`, CodeQL analysis, and a gitleaks scan of the repository history.
 
 ## Adding or editing content
 
@@ -315,6 +327,7 @@ Course and lesson data live in `assets/js/data/`:
 - `data-js.js`: JavaScript lessons.
 - `data-js-data.js`: objects, array methods, and error handling.
 - `data-js-modern.js`: types, strict equality, closures, classes, JSON, and async.
+- `data-js-practice.js`: destructuring, form data, local storage, and console debugging.
 - `data-projects.js`: guided projects.
 - `data-challenges.js`: extra challenges.
 
@@ -333,13 +346,14 @@ To regenerate the icon set from Reicon, run `npm run icons`. To rebuild the favi
 Kodingu stores these keys in `localStorage`:
 
 - `kodingu.progress.v1`: XP, streak, history, and completed lessons, challenges, and projects.
+- `kodingu.progress.corrupt.v1`: the raw saved record kept when progress cannot be read, so it can be exported for recovery.
 - `kodingu.theme`: the selected light or dark theme.
 - `kodingu.draft.<lessonId>`: the current lesson draft.
 - `kodingu.challengeDraft.<challengeId>`: the current challenge draft.
 - `kodingu.projectDraft.<projectId>`: the current project draft.
 - `kodingu.certificate.name`: the name used on a certificate.
 
-Clear site data in the browser to remove progress, drafts, the theme, and the certificate name. **Reset progress** on the progress page clears XP, streak, and completed work, but keeps drafts and the theme. There is no server copy to restore.
+Clear site data in the browser to remove progress, drafts, the theme, and the certificate name. **Reset progress** on the progress page clears XP, streak, completed work, saved drafts, and the certificate name, but keeps the theme. There is no server copy to restore.
 
 **Export JSON** writes a copy of the progress, schema version, export date, and certificate name. **Import JSON** restores that file in another browser. Imports are limited to 1 MB, checked for the Kodingu format and a supported schema version, and filtered against the lessons, challenges, and projects that exist here. The imported XP total is recalculated from the surviving entries, so a file cannot invent progress. `migrateProgress()` carries unversioned legacy data forward to version 2.
 
@@ -351,7 +365,9 @@ The site uses semantic landmarks, a skip link that moves focus to main, visible 
 
 ## Contributing
 
-The repository is [eiaiproject/Kodingu](https://github.com/eiaiproject/Kodingu). Before opening a pull request, run `npm run lint` and `npm run verify`. Keep the site free of a build step and runtime dependencies; [AGENTS.md](AGENTS.md) lists the repository rules.
+The repository is [eiaiproject/Kodingu](https://github.com/eiaiproject/Kodingu). Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, and the content workflow. Participation is covered by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); report vulnerabilities through [SECURITY.md](SECURITY.md). Release notes live in [CHANGELOG.md](CHANGELOG.md).
+
+Before opening a pull request, run `npm run lint` and `npm run verify`. Keep the site free of a build step and runtime dependencies; [AGENTS.md](AGENTS.md) lists the repository rules.
 
 ## Credits and references
 

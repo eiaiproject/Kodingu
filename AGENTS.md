@@ -11,7 +11,8 @@ The production site is plain HTML, CSS, and ES modules. It has no build step, fr
 - `npm run lint` runs ESLint over the site modules and tooling scripts.
 - `npm run course-index` regenerates `assets/js/data/course-index.js` and the per-lesson modules under `assets/js/data/lessons/` after changing lesson content, titles, minutes, or XP.
 - `npm run pages` regenerates the static reading pages in `lessons/` after editing lesson text.
-- `npm run audit` runs the optional layout, contrast, and focus pass.
+- `npm run audit:ui` runs the optional layout, contrast, and focus pass.
+- `npm run audit:deps` runs `npm audit --omit=dev`. CI also runs CodeQL and a gitleaks history scan.
 - `npm run sitemap` regenerates `sitemap.xml` after adding or removing content.
 
 Node 22 or newer is required for the tooling.

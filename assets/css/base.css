@@ -9,12 +9,43 @@
   --ink-meta: #6b655b;
   --line: #d6cfc2;
   --line-strong: #b9b0a1;
+  --control-border: #857c6d;
   --accent: #b23a2f;
   --accent-strong: #963027;
   --accent-ink: #ffffff;
   --pass: #2f6b4f;
   --warn: #8a5a1f;
   --focus: #1f1d1a;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.375rem;
+  --space-3: 0.5rem;
+  --space-4: 0.75rem;
+  --space-5: 1rem;
+  --space-6: 1.25rem;
+  --space-7: 1.5rem;
+  --space-8: 2rem;
+  --space-9: 2.5rem;
+  --space-10: 3rem;
+  --space-11: 4rem;
+  --space-12: 5rem;
+
+  /* Type scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.75rem;
+  --text-4xl: 2rem;
+  --text-5xl: 2.5rem;
+
+  /* Radius */
+  --radius-control: 2px;
+  --radius-surface: 4px;
 
   --font-display: "Shippori Mincho", "Iowan Old Style", Georgia, serif;
   --font-body: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -23,9 +54,13 @@
   --shell: 1160px;
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
 
-  --motion-fast: 150ms;
-  --motion-slow: 160ms;
+  --motion: 150ms;
   --scroll-behavior: smooth;
+
+  /* Preview surfaces stay white, like a browser. */
+  --preview-paper: #ffffff;
+  --preview-line: #e4ded2;
+  --preview-meta: #6b655b;
 }
 
 [data-theme="dark"] {
@@ -39,6 +74,7 @@
   --ink-meta: #a39b8d;
   --line: #3a3632;
   --line-strong: #4e4943;
+  --control-border: #7a746d;
   --accent: #e0604f;
   --accent-strong: #ef7a6a;
   --accent-ink: #191817;
@@ -60,7 +96,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: var(--scroll-behavior);
-  scroll-padding-top: 5rem;
+  scroll-padding-top: var(--space-12);
 }
 
 body {
@@ -68,7 +104,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: var(--text-base);
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -118,7 +154,7 @@ h2 {
 }
 
 h3 {
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   line-height: 1.3;
 }
 
@@ -153,9 +189,9 @@ ol {
 .section-label {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--space-3);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--accent);
 }
@@ -209,10 +245,10 @@ ol {
   top: 0;
   left: 0;
   z-index: 100;
-  padding: 0.75rem 1rem;
+  padding: var(--space-4) var(--space-5);
   background: var(--ink);
   color: var(--paper);
-  font-size: 0.9rem;
+  font-size: var(--text-md);
   text-decoration: none;
   transform: translateY(-120%);
 }
@@ -231,17 +267,16 @@ ol {
 }
 
 .noscript {
-  padding: 0.75rem 1rem;
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--line);
   background: var(--paper-sunken);
-  font-size: 0.88rem;
+  font-size: var(--text-md);
   text-align: center;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --motion-fast: 0.01ms;
-    --motion-slow: 0.01ms;
+    --motion: 0.01ms;
     --scroll-behavior: auto;
   }
 }

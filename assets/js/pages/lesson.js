@@ -194,64 +194,8 @@ function unfinishedPanelMarkup(lesson, quizDone) {
     `;
 }
 
-function renderMain() {
-  const { course, module, lesson } = found;
-  const lessons = getAllLessons(course);
-  const progress = getProgress();
-  const index = lessons.findIndex((item) => item.id === lesson.id);
-  const previous = getPreviousLesson(course, lesson.id);
-  const next = getNextLesson(course, lesson.id);
-  const quizDone = Boolean(progress.quizzes[lesson.id]?.correct);
-  const complete = Boolean(progress.completed[lesson.id]);
-  const draft = readDraft(lesson.id) ?? lesson.challenge.starter;
-  const language = lesson.language || course.language || 'html';
-  const languageMeta = {
-    html: { file: 'index.html', label: 'Your HTML', heading: 'Write the page', frame: 'HTML' },
-    css: { file: 'styles.css', label: 'Your CSS', heading: 'Write the styles', frame: 'CSS' },
-    js: { file: 'script.js', label: 'Your JavaScript', heading: 'Write the script', frame: 'JavaScript' }
-  }[language] || { file: 'index.html', label: 'Your HTML', heading: 'Write the page', frame: 'HTML' };
-  const main = document.querySelector('#lesson-main');
-  if (!main) return;
-
-  const quizOptions = lesson.quiz.options
-    .map(
-      (option, optionIndex) => `
-        <label class="quiz-option${quizDone && optionIndex === lesson.quiz.answer ? ' is-correct' : ''}">
-          <input type="radio" name="quiz" value="${optionIndex}"${quizDone && optionIndex === lesson.quiz.answer ? ' checked' : ''}${quizDone ? ' disabled' : ''}>
-          <span>${escapeHtml(option)}</span>
-        </label>
-      `
-    )
-    .join('');
-
-  const quizFeedback = quizDone
-    ? `<output class="feedback is-pass" role="status" tabindex="-1">${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span></output>`
-    : `<output class="feedback" id="quiz-feedback" role="status" tabindex="-1" hidden></output>`;
-
-  const checks = lesson.challenge.tests
-    .map(
-      (test, testIndex) => `
-        <li class="check-item" data-check="${testIndex}">
-          <span class="check-icon"><span class="check-pending"></span></span>
-          <span>${escapeHtml(test.label)}</span>
-          <span class="check-state">Not run</span>
-        </li>
-      `
-    )
-    .join('');
-
-  const finishMarkup = complete ? completedPanelMarkup() : unfinishedPanelMarkup(lesson, quizDone);
-
-  const previousLink = previous
-    ? `<a href="lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(previous.id)}"><span class="lesson-nav-label">Previous</span><span>${escapeHtml(previous.title)}</span></a>`
-    : '<span></span>';
-
-  const nextLink = next
-    ? `<a class="lesson-nav-next" href="lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(next.id)}"><span class="lesson-nav-label">Next</span><span>${escapeHtml(next.title)}</span></a>`
-    : `<a class="lesson-nav-next" href="course.html?course=${encodeURIComponent(course.id)}"><span class="lesson-nav-label">Course</span><span>Back to ${escapeHtml(course.title)}</span></a>`;
-
-  main.innerHTML = `
-    <article class="lesson-article" aria-labelledby="lesson-title">
+function lessonHeaderMarkup(course, module, lesson, index, total, complete) {
+  return `
     <header class="lesson-head">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="catalog.html">Catalog</a>
@@ -265,7 +209,7 @@ function renderMain() {
         <span>${icon('BookOpen', { size: 16 })} ${escapeHtml(module.title)}</span>
         <span>${icon('Clock', { size: 16 })} ${lesson.minutes} min</span>
         <span>${icon('Gauge', { size: 16 })} ${lesson.xp} XP</span>
-        <span>${icon('Layers', { size: 16 })} Lesson ${index + 1} of ${lessons.length}</span>
+        <span>${icon('Layers', { size: 16 })} Lesson ${index + 1} of ${total}</span>
         ${complete ? `<span>${icon('CheckCircle', { size: 16 })} Complete</span>` : ''}
       </div>
       <div class="goal">
@@ -273,31 +217,42 @@ function renderMain() {
         <p>${escapeHtml(lesson.objective)}</p>
       </div>
     </header>
+  `;
+}
 
-    <section class="theory" aria-label="Lesson notes">
-      ${lesson.theory.map(renderBlock).join('')}
-    </section>
+function quizMarkup(lesson, quizDone) {
+  const options = lesson.quiz.options
+    .map(
+      (option, optionIndex) => `
+        <label class="quiz-option${quizDone && optionIndex === lesson.quiz.answer ? ' is-correct' : ''}">
+          <input type="radio" name="quiz" value="${optionIndex}"${quizDone && optionIndex === lesson.quiz.answer ? ' checked' : ''}${quizDone ? ' disabled' : ''}>
+          <span>${escapeHtml(option)}</span>
+        </label>
+      `
+    )
+    .join('');
+  const feedback = quizDone
+    ? `<output class="feedback is-pass" role="status" tabindex="-1">${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span></output>`
+    : `<output class="feedback" id="quiz-feedback" role="status" tabindex="-1" hidden></output>`;
+  return { options, feedback };
+}
 
-    <section class="exercise" aria-labelledby="quiz-heading">
-      <div class="exercise-head">
-        <h2 id="quiz-heading">Check your reading</h2>
-        <span class="exercise-kicker">Quiz</span>
-      </div>
-      <p class="quiz-question" id="quiz-question">${escapeHtml(lesson.quiz.question)}</p>
-      <div class="quiz-options" role="radiogroup" aria-labelledby="quiz-question">
-        ${quizOptions}
-      </div>
-      <div class="quiz-actions">
-        ${quizDone ? '' : '<button class="button button-secondary button-small" id="quiz-check" type="button">Check answer</button>'}
-      </div>
-      ${quizFeedback}
-    </section>
+function checkItemsMarkup(tests) {
+  return tests
+    .map(
+      (test, index) => `
+        <li class="check-item" data-check="${index}">
+          <span class="check-icon"><span class="check-pending"></span></span>
+          <span>${escapeHtml(test.label)}</span>
+          <span class="check-state">Not run</span>
+        </li>
+      `
+    )
+    .join('');
+}
 
-    <section class="exercise" id="challenge" aria-labelledby="challenge-heading">
-      <div class="exercise-head">
-        <h2 id="challenge-heading">${languageMeta.heading}</h2>
-        <span class="exercise-kicker">Challenge</span>
-      </div>
+function challengeMarkup(lesson, languageMeta, draft, checks, language) {
+  return `
       <p class="challenge-prompt">${escapeHtml(lesson.challenge.prompt)}</p>
       <ul class="requirements">
         ${lesson.challenge.requirements.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
@@ -341,69 +296,88 @@ function renderMain() {
         <p class="solution-note">One way to do it. Your page may differ and still pass.</p>
         ${codeBlock(lesson.challenge.solution, language)}
       </div>
-    </section>
+  `;
+}
 
-    ${finishMarkup}
-    </article>
-
+function lessonNavMarkup(course, previous, next) {
+  const previousLink = previous
+    ? `<a href="lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(previous.id)}"><span class="lesson-nav-label">Previous</span><span>${escapeHtml(previous.title)}</span></a>`
+    : '<span></span>';
+  const nextLink = next
+    ? `<a class="lesson-nav-next" href="lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(next.id)}"><span class="lesson-nav-label">Next</span><span>${escapeHtml(next.title)}</span></a>`
+    : `<a class="lesson-nav-next" href="course.html?course=${encodeURIComponent(course.id)}"><span class="lesson-nav-label">Course</span><span>Back to ${escapeHtml(course.title)}</span></a>`;
+  return `
     <nav class="lesson-nav" aria-label="Lesson navigation">
       ${previousLink}
       ${nextLink}
     </nav>
   `;
+}
+
+function renderMain() {
+  const { course, module, lesson } = found;
+  const lessons = getAllLessons(course);
+  const progress = getProgress();
+  const index = lessons.findIndex((item) => item.id === lesson.id);
+  const previous = getPreviousLesson(course, lesson.id);
+  const next = getNextLesson(course, lesson.id);
+  const quizDone = Boolean(progress.quizzes[lesson.id]?.correct);
+  const complete = Boolean(progress.completed[lesson.id]);
+  const draft = readDraft(lesson.id) ?? lesson.challenge.starter;
+  const language = lesson.language || course.language || 'html';
+  const languageMeta = {
+    html: { file: 'index.html', label: 'Your HTML', heading: 'Write the page', frame: 'HTML' },
+    css: { file: 'styles.css', label: 'Your CSS', heading: 'Write the styles', frame: 'CSS' },
+    js: { file: 'script.js', label: 'Your JavaScript', heading: 'Write the script', frame: 'JavaScript' }
+  }[language] || { file: 'index.html', label: 'Your HTML', heading: 'Write the page', frame: 'HTML' };
+  const main = document.querySelector('#lesson-main');
+  if (!main) return;
+
+  const quiz = quizMarkup(lesson, quizDone);
+  const checks = checkItemsMarkup(lesson.challenge.tests);
+  const finishMarkup = complete ? completedPanelMarkup() : unfinishedPanelMarkup(lesson, quizDone);
+
+  main.innerHTML = `
+    <article class="lesson-article" aria-labelledby="lesson-title">
+      ${lessonHeaderMarkup(course, module, lesson, index, lessons.length, complete)}
+
+      <section class="theory" aria-label="Lesson notes">
+        ${lesson.theory.map(renderBlock).join('')}
+      </section>
+
+      <section class="exercise" aria-labelledby="quiz-heading">
+        <div class="exercise-head">
+          <h2 id="quiz-heading">Check your reading</h2>
+          <span class="exercise-kicker">Quiz</span>
+        </div>
+        <p class="quiz-question" id="quiz-question">${escapeHtml(lesson.quiz.question)}</p>
+        <div class="quiz-options" role="radiogroup" aria-labelledby="quiz-question">
+          ${quiz.options}
+        </div>
+        <div class="quiz-actions">
+          ${quizDone ? '' : '<button class="button button-secondary button-small" id="quiz-check" type="button">Check answer</button>'}
+        </div>
+        ${quiz.feedback}
+      </section>
+
+      <section class="exercise" id="challenge" aria-labelledby="challenge-heading">
+        <div class="exercise-head">
+          <h2 id="challenge-heading">${languageMeta.heading}</h2>
+          <span class="exercise-kicker">Challenge</span>
+        </div>
+        ${challengeMarkup(lesson, languageMeta, draft, checks, language)}
+      </section>
+
+      ${finishMarkup}
+    </article>
+
+    ${lessonNavMarkup(course, previous, next)}
+  `;
 
   wireLesson(lesson, quizDone);
 }
 
-function wireLesson(lesson, quizDone) {
-  const language = lesson.language || found.course.language || 'html';
-  const finishButton = document.querySelector('#finish-lesson');
-  const state = { quizCorrect: quizDone };
-  let workspace;
-
-  const updateFinishState = () => {
-    if (!finishButton) return;
-    const testsPassed = workspace?.state.testsPassed === true;
-    const quiz = document.querySelector('#finish-quiz');
-    const checks = document.querySelector('#finish-checks');
-    const hint = document.querySelector('#finish-hint');
-    if (quiz) {
-      quiz.classList.toggle('is-done', state.quizCorrect);
-      quiz.innerHTML = `${state.quizCorrect ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Quiz`;
-    }
-    if (checks) {
-      checks.classList.toggle('is-done', testsPassed);
-      checks.innerHTML = `${testsPassed ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
-    }
-    finishButton.disabled = !(state.quizCorrect && testsPassed);
-    if (hint) {
-      hint.textContent = state.quizCorrect && testsPassed
-        ? 'Ready when you are.'
-        : 'Answer the quiz and pass every check to finish.';
-    }
-  };
-
-  workspace = mountWorkspace({
-    editor: document.querySelector('#editor-code'),
-    frame: document.querySelector('#editor-frame'),
-    errorMount: document.querySelector('#script-error'),
-    runButton: document.querySelector('#run-code'),
-    checkButton: document.querySelector('#check-code'),
-    resetButton: document.querySelector('#reset-code'),
-    language,
-    preview: lesson.preview,
-    tests: lesson.challenge.tests,
-    starter: lesson.challenge.starter,
-    draftKey: `kodingu.draft.${lesson.id}`,
-    beforeCheck: () => recordActivity('check', lesson.id),
-    onCheck: updateFinishState,
-    onEdit: updateFinishState,
-    onReset: updateFinishState
-  });
-
-  void workspace.runPreview();
-  updateFinishState();
-
+function wireQuiz(lesson, state, updateFinishState) {
   const quizCheck = document.querySelector('#quiz-check');
 
   quizCheck?.addEventListener('click', () => {
@@ -459,6 +433,57 @@ function wireLesson(lesson, quizDone) {
       }
     });
   });
+}
+
+function wireLesson(lesson, quizDone) {
+  const language = lesson.language || found.course.language || 'html';
+  const finishButton = document.querySelector('#finish-lesson');
+  const state = { quizCorrect: quizDone };
+  let workspace;
+
+  const updateFinishState = () => {
+    if (!finishButton) return;
+    const testsPassed = workspace?.state.testsPassed === true;
+    const quiz = document.querySelector('#finish-quiz');
+    const checks = document.querySelector('#finish-checks');
+    const hint = document.querySelector('#finish-hint');
+    if (quiz) {
+      quiz.classList.toggle('is-done', state.quizCorrect);
+      quiz.innerHTML = `${state.quizCorrect ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Quiz`;
+    }
+    if (checks) {
+      checks.classList.toggle('is-done', testsPassed);
+      checks.innerHTML = `${testsPassed ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
+    }
+    finishButton.disabled = !(state.quizCorrect && testsPassed);
+    if (hint) {
+      hint.textContent = state.quizCorrect && testsPassed
+        ? 'Ready when you are.'
+        : 'Answer the quiz and pass every check to finish.';
+    }
+  };
+
+  workspace = mountWorkspace({
+    editor: document.querySelector('#editor-code'),
+    frame: document.querySelector('#editor-frame'),
+    errorMount: document.querySelector('#script-error'),
+    runButton: document.querySelector('#run-code'),
+    checkButton: document.querySelector('#check-code'),
+    resetButton: document.querySelector('#reset-code'),
+    language,
+    preview: lesson.preview,
+    tests: lesson.challenge.tests,
+    starter: lesson.challenge.starter,
+    draftKey: `kodingu.draft.${lesson.id}`,
+    beforeCheck: () => recordActivity('check', lesson.id),
+    onCheck: updateFinishState,
+    onEdit: updateFinishState,
+    onReset: updateFinishState
+  });
+
+  void workspace.runPreview();
+  updateFinishState();
+  wireQuiz(lesson, state, updateFinishState);
 
   wireToggle('#hint-toggle', '#hint', 'Show hint', 'Hide hint');
   wireToggle('#solution-toggle', '#solution', 'Show solution', 'Hide solution');

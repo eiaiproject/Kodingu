@@ -23,7 +23,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: npm run audit:deps
       - run: npm run lint
       - run: ./node_modules/.bin/playwright install --with-deps chromium
       - run: npm run verify
-      - run: npm run audit
+      - run: npm run audit:ui

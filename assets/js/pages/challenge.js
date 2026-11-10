@@ -119,15 +119,8 @@ function completedPanelMarkup(progress) {
   `;
 }
 
-function renderMain() {
-  if (!main || !challenge) return;
-  const progress = getProgress();
-  const completed = Boolean(progress.completedChallenges[challenge.id]);
-  const draft = readDraft() ?? challenge.starter;
-  const meta = languageMeta[challenge.language] || languageMeta.html;
-  const previous = challengeAt(-1);
-  const next = challengeAt(1);
-  const checks = challenge.tests
+function checkItemsMarkup(tests) {
+  return tests
     .map(
       (test, index) => `
         <li class="check-item" data-check="${index}">
@@ -138,28 +131,10 @@ function renderMain() {
       `
     )
     .join('');
-  const previousLink = previous
-    ? `<a href="challenge.html?challenge=${encodeURIComponent(previous.id)}"><span class="lesson-nav-label">Previous challenge</span><span>${escapeHtml(previous.title)}</span></a>`
-    : '<span></span>';
-  const nextLink = next
-    ? `<a class="lesson-nav-next" href="challenge.html?challenge=${encodeURIComponent(next.id)}"><span class="lesson-nav-label">Next challenge</span><span>${escapeHtml(next.title)}</span></a>`
-    : '<a class="lesson-nav-next" href="practice.html"><span class="lesson-nav-label">Practice set</span><span>All challenges</span></a>';
-  const finishMarkup = completed
-    ? completedPanelMarkup(progress)
-    : `
-      <section class="finish-panel" id="finish-panel" aria-labelledby="finish-heading">
-        <h2 class="finish-title" id="finish-heading">Finish this challenge</h2>
-        <div class="finish-status">
-          <span id="finish-checks"><span class="check-pending"></span> Checks</span>
-        </div>
-        <div class="finish-actions">
-          <button class="button button-primary" id="finish-challenge" type="button" disabled>Finish challenge · +${challenge.xp} XP</button>
-          <span class="finish-hint" id="finish-hint">Pass every check to finish.</span>
-        </div>
-      </section>
-    `;
+}
 
-  main.innerHTML = `
+function challengeHeaderMarkup(challenge, meta, completed) {
+  return `
     <header class="lesson-head">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="catalog.html">Catalog</a>
@@ -181,7 +156,11 @@ function renderMain() {
         <p>${escapeHtml(challenge.objective)}</p>
       </div>
     </header>
+  `;
+}
 
+function challengeBriefMarkup(challenge) {
+  return `
     <section class="exercise" aria-labelledby="brief-heading">
       <div class="exercise-head">
         <h2 id="brief-heading">The brief</h2>
@@ -192,7 +171,11 @@ function renderMain() {
         ${challenge.requirements.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
       </ul>
     </section>
+  `;
+}
 
+function challengeWorkspaceMarkup(challenge, meta, draft, checks) {
+  return `
     <section class="exercise" aria-labelledby="workspace-heading">
       <div class="exercise-head">
         <h2 id="workspace-heading">${meta.heading}</h2>
@@ -238,13 +221,54 @@ function renderMain() {
         ${codeBlock(challenge.solution, challenge.language)}
       </div>
     </section>
+  `;
+}
 
-    ${finishMarkup}
-
+function challengeNavMarkup(previous, next) {
+  const previousLink = previous
+    ? `<a href="challenge.html?challenge=${encodeURIComponent(previous.id)}"><span class="lesson-nav-label">Previous challenge</span><span>${escapeHtml(previous.title)}</span></a>`
+    : '<span></span>';
+  const nextLink = next
+    ? `<a class="lesson-nav-next" href="challenge.html?challenge=${encodeURIComponent(next.id)}"><span class="lesson-nav-label">Next challenge</span><span>${escapeHtml(next.title)}</span></a>`
+    : '<a class="lesson-nav-next" href="practice.html"><span class="lesson-nav-label">Practice set</span><span>All challenges</span></a>';
+  return `
     <nav class="lesson-nav" aria-label="Challenge navigation">
       ${previousLink}
       ${nextLink}
     </nav>
+  `;
+}
+
+function renderMain() {
+  if (!main || !challenge) return;
+  const progress = getProgress();
+  const completed = Boolean(progress.completedChallenges[challenge.id]);
+  const draft = readDraft() ?? challenge.starter;
+  const meta = languageMeta[challenge.language] || languageMeta.html;
+  const previous = challengeAt(-1);
+  const next = challengeAt(1);
+  const checks = checkItemsMarkup(challenge.tests);
+  const finishMarkup = completed
+    ? completedPanelMarkup(progress)
+    : `
+      <section class="finish-panel" id="finish-panel" aria-labelledby="finish-heading">
+        <h2 class="finish-title" id="finish-heading">Finish this challenge</h2>
+        <div class="finish-status">
+          <span id="finish-checks"><span class="check-pending"></span> Checks</span>
+        </div>
+        <div class="finish-actions">
+          <button class="button button-primary" id="finish-challenge" type="button" disabled>Finish challenge · +${challenge.xp} XP</button>
+          <span class="finish-hint" id="finish-hint">Pass every check to finish.</span>
+        </div>
+      </section>
+    `;
+
+  main.innerHTML = `
+    ${challengeHeaderMarkup(challenge, meta, completed)}
+    ${challengeBriefMarkup(challenge)}
+    ${challengeWorkspaceMarkup(challenge, meta, draft, checks)}
+    ${finishMarkup}
+    ${challengeNavMarkup(previous, next)}
   `;
 
   wireChallenge();

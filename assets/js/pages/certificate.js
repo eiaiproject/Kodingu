@@ -1,14 +1,15 @@
 import { getCourse, getAllLessons } from '../data/course-index.js';
 import {
   CERTIFICATE_NAME_KEY,
-  escapeHtml,
   formatFullDate,
   getCourseStats,
   getProgress,
+  html,
   icon,
   initChrome,
   pluralize,
   progressBar,
+  raw,
   setPageTitle,
   setSocialMeta
 } from '../core/app.js';
@@ -58,15 +59,15 @@ function renderLocked(stats) {
   if (pageHeading) pageHeading.textContent = `${course.title} certificate`;
   if (!main) return;
   const next = stats.nextLesson;
-  main.innerHTML = `
+  main.innerHTML = html`
     <section class="certificate-locked" aria-labelledby="locked-heading">
       <p class="section-label">Not ready yet</p>
       <h2 id="locked-heading">Finish the course first.</h2>
       <p>${stats.completed} of ${pluralize(lessons.length, 'lesson')} complete. A certificate opens when every lesson is finished.</p>
-      ${progressBar(stats.percent, `${course.title} progress`)}
+      ${raw(progressBar(stats.percent, `${course.title} progress`))}
       <div class="hero-actions">
         ${next
-          ? `<a class="button button-primary" href="lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(next.id)}">Continue with ${escapeHtml(next.title)}</a>`
+          ? html`<a class="button button-primary" href="lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(next.id)}">Continue with ${next.title}</a>`
           : ''}
         <a class="button button-secondary" href="course.html?course=${encodeURIComponent(course.id)}">Course overview</a>
       </div>
@@ -93,26 +94,26 @@ function renderCertificate() {
   if (pageHeading) pageHeading.textContent = `${course.title} certificate`;
   if (!main) return;
 
-  main.innerHTML = `
+  main.innerHTML = html`
     <section class="certificate-wrap" aria-labelledby="certificate-heading">
       <div class="certificate-actions">
         <label for="certificate-name">Name on certificate</label>
         <input id="certificate-name" name="certificate-name" type="text" maxlength="60" autocomplete="name" placeholder="Your name" value="">
         <button class="button button-primary" id="print-certificate" type="button" disabled>
-          ${icon('Award', { size: 16 })} Print or save as PDF
+          ${raw(icon('Award', { size: 16 }))} Print or save as PDF
         </button>
         <p class="certificate-hint" id="certificate-hint">Add your name to print.</p>
       </div>
 
       <article class="certificate" id="certificate">
-        <div class="certificate-mark" aria-hidden="true">${icon('Code', { size: 26 })}</div>
+        <div class="certificate-mark" aria-hidden="true">${raw(icon('Code', { size: 26 }))}</div>
         <p class="certificate-kicker">Kodingu certificate</p>
-        <h2 class="certificate-course" id="certificate-heading">${escapeHtml(course.title)}</h2>
+        <h2 class="certificate-course" id="certificate-heading">${course.title}</h2>
         <p class="certificate-for">Awarded to</p>
         <p class="certificate-name is-placeholder" id="certificate-name-display">Your name</p>
         <p class="certificate-copy">for completing all ${pluralize(lessons.length, 'lesson')} and earning ${xp} XP.</p>
         <dl class="certificate-meta">
-          <div><dt>Date</dt><dd>${escapeHtml(formatFullDate(completedAt))}</dd></div>
+          <div><dt>Date</dt><dd>${formatFullDate(completedAt)}</dd></div>
           <div><dt>Lessons</dt><dd>${lessons.length}</dd></div>
           <div><dt>XP</dt><dd>${xp}</dd></div>
         </dl>

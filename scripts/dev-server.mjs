@@ -27,11 +27,17 @@ function parseHeaderRules(source) {
   for (const line of source.split(/\r?\n/)) {
     if (!line.trim() || line.trim().startsWith('#')) continue;
     if (!/^\s/.test(line)) {
-      current = { pattern: line.trim(), headers: {} };
+      current = { pattern: line.trim(), headers: {}, remove: [] };
       rules.push(current);
       continue;
     }
     if (!current) continue;
+    const trimmed = line.trim();
+    if (trimmed.startsWith('!')) {
+      const name = trimmed.slice(1).trim();
+      if (name) current.remove.push(name.toLowerCase());
+      continue;
+    }
     const colon = line.indexOf(':');
     if (colon === -1) continue;
     const name = line.slice(0, colon).trim();
@@ -64,6 +70,7 @@ export function collectHeaders(rules, pathname) {
   const merged = new Map();
   for (const rule of rules) {
     if (!matchesPattern(rule.pattern, pathname)) continue;
+    for (const name of rule.remove || []) merged.delete(name);
     for (const [name, value] of Object.entries(rule.headers)) {
       const key = name.toLowerCase();
       const entry = merged.get(key);

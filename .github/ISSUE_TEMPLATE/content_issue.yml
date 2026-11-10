@@ -1,0 +1,25 @@
+name: Content issue
+description: Report a lesson, quiz, or challenge that is wrong or unclear.
+title: "[Content]: "
+labels: ["content"]
+body:
+  - type: input
+    id: item
+    attributes:
+      label: Lesson, challenge, or project ID
+      placeholder: html-12
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong
+      description: Quote the sentence, quiz answer, or check, and explain the correction.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+    validations:
+      required: false

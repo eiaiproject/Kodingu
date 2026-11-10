@@ -1,4 +1,4 @@
-const CACHE = 'kodingu-v14';
+const CACHE = 'kodingu-v19';
 
 const SHELL = [
   'index.html',
@@ -40,6 +40,8 @@ const SHELL = [
   'assets/js/pages/home.js',
   'assets/js/core/icons.js',
   'assets/js/editor/js-runner.js',
+  'assets/js/editor/preflight-frame.js',
+  'assets/js/editor/preflight-worker.js',
   'assets/js/pages/lesson.js',
   'assets/js/pages/not-found.js',
   'assets/js/pages/practice.js',

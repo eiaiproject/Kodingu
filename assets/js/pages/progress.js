@@ -303,5 +303,5 @@ resetButton?.addEventListener('click', () => {
   renderAll();
   resetResetButton();
   setDataStatus('');
-  toast('Progress and drafts cleared.');
+  toast('Progress, drafts, and certificate name cleared.');
 });
