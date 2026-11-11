@@ -1099,6 +1099,7 @@
 }
 
 .loading-note {
+  display: block;
   padding-block: var(--space-8);
   color: var(--ink-meta);
   font-size: var(--text-md);
