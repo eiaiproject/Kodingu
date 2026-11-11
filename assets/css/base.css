@@ -143,6 +143,8 @@ h4 {
   font-weight: 500;
   line-height: 1.12;
   text-wrap: balance;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 h1 {

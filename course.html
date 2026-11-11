@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/app.css">
   <script type="module" src="assets/js/pages/course.js"></script>
+  <noscript><style>.loading-note { display: none; }</style></noscript>
 </head>
 <body>
   <noscript><p class="noscript">Kodingu needs JavaScript for the course pages. Please turn it on.</p></noscript>
@@ -36,9 +37,13 @@
 
   <main id="main" tabindex="-1">
     <div class="shell course-hero">
-      <div class="course-hero-grid" id="course-hero"></div>
+      <div class="course-hero-grid" id="course-hero" aria-busy="true">
+        <p class="loading-note" role="status">Loading course...</p>
+      </div>
     </div>
-    <div class="shell" id="course-content"></div>
+    <div class="shell" id="course-content" aria-busy="true">
+      <p class="loading-note" role="status">Loading lessons...</p>
+    </div>
   </main>
 
   <div id="site-footer"></div>

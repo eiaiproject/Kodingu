@@ -75,6 +75,10 @@ function readDraft(lessonId) {
   }
 }
 
+function markLoaded(selector) {
+  document.querySelector(selector)?.removeAttribute('aria-busy');
+}
+
 function codeBlock(code, lang = 'html') {
   return `
     <div class="code-block">
@@ -144,6 +148,7 @@ function renderSidebar() {
     </nav>
   `;
 
+  markLoaded('#lesson-sidebar');
   wireSidebar(mount);
 }
 
@@ -374,6 +379,7 @@ function renderMain() {
     ${lessonNavMarkup(course, previous, next)}
   `;
 
+  markLoaded('#lesson-main');
   wireLesson(lesson, quizDone);
 }
 
@@ -514,6 +520,8 @@ function renderLoadFailure() {
   const sidebar = document.querySelector('#lesson-sidebar');
   const main = document.querySelector('#lesson-main');
   if (sidebar) sidebar.innerHTML = '';
+  markLoaded('#lesson-sidebar');
+  markLoaded('#lesson-main');
   if (!main) return;
   const courseHref = `course.html?course=${encodeURIComponent(courseSummary?.id || 'html')}`;
   main.innerHTML = `
@@ -539,6 +547,8 @@ function renderNotFound() {
   const sidebar = document.querySelector('#lesson-sidebar');
   const main = document.querySelector('#lesson-main');
   if (sidebar) sidebar.innerHTML = '';
+  markLoaded('#lesson-sidebar');
+  markLoaded('#lesson-main');
   if (!main) return;
   main.innerHTML = `
     <div class="page-head">

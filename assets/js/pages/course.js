@@ -13,6 +13,11 @@ import {
   statusLabel
 } from '../core/app.js';
 
+function markLoaded() {
+  document.querySelector('#course-hero')?.removeAttribute('aria-busy');
+  document.querySelector('#course-content')?.removeAttribute('aria-busy');
+}
+
 function renderNotFound() {
   setPageTitle('Course not found');
   const hero = document.querySelector('#course-hero');
@@ -34,6 +39,7 @@ function renderNotFound() {
     `;
   }
   if (content) content.innerHTML = '';
+  markLoaded();
 }
 
 function lessonRows(course, lessons, completed) {
@@ -149,6 +155,7 @@ function renderCourse(course) {
   `;
 
   content.innerHTML = courseContentMarkup(course, progress);
+  markLoaded();
 }
 
 const course = getCourse(new URLSearchParams(window.location.search).get('course'));

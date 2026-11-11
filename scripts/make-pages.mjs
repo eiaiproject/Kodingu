@@ -119,7 +119,6 @@ function renderLessonPage({ course, module, lesson, index, lessons }) {
   );
   const title = `${lesson.title} · ${course.title} · Kodingu`;
   const courseHref = `../course.html?course=${encodeURIComponent(course.id)}`;
-  const interactiveHref = `../lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(lesson.id)}`;
 
   const previousMarkup = previous
     ? `<a href="./${encodeURIComponent(previous.id)}.html"><span class="lesson-nav-label">Previous</span><span>${escapeHtml(previous.title)}</span></a>`
@@ -213,12 +212,6 @@ function renderLessonPage({ course, module, lesson, index, lessons }) {
             <p>${escapeHtml(lesson.objective)}</p>
           </div>
         </header>
-${practiceMarkup(
-            course,
-            lesson,
-            'Read first',
-            'This is the reading version of the lesson. Open the workspace to answer the quiz, write the code, and run the checks.'
-          )}
 
         <section class="theory" aria-label="Lesson notes">
           ${lesson.theory.map(renderBlock).join('\n          ')}
@@ -244,8 +237,6 @@ ${practiceMarkup(
           ${previousMarkup}
           ${nextMarkup}
         </nav>
-
-        <p class="static-source">Readable lesson page. <a href="${interactiveHref}">Open the interactive lesson</a> for the editor and checks.</p>
       </article>
     </div>
   </main>${footerMarkup()}

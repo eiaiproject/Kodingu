@@ -87,6 +87,7 @@ Examples:
 - **Public Sans for body:** it keeps instructions plain and legible at small sizes.
 - **Asymmetric hero:** the copy and the working lesson demo are different jobs, so they get different widths.
 - **One content shadow:** the demo is the only content surface that needs to sit above the page. The mobile menu is an overlay and may lift while open.
+- **Radius follows role:** controls and chips use 2px, framed surfaces use 4px, and the printable certificate stays square because it stands in for paper.
 - **No motif pattern:** the chosen direction is Zen minimal, so texture would add noise without meaning.
 - **Working light and dark themes:** the product is content-first, so the reader gets the choice.
 - **44px controls on mobile:** the audience may be learning on a phone between other tasks, so the primary controls need a comfortable target.
