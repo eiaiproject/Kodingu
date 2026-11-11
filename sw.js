@@ -1,4 +1,4 @@
-const CACHE = 'kodingu-v20';
+const CACHE = 'kodingu-v22';
 
 const SHELL = [
   'index.html',

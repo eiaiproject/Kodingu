@@ -12,6 +12,7 @@ body > .site-header {
 
 .static-article {
   max-width: 780px;
+  margin-inline: auto;
 }
 
 .static-article .breadcrumb {
@@ -37,9 +38,9 @@ body > .site-header {
   justify-content: space-between;
   gap: var(--space-5) var(--space-7);
   margin-top: var(--space-7);
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-5);
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
   background: var(--paper-raised);
 }
 
@@ -59,7 +60,6 @@ body > .site-header {
 }
 
 .static-challenge {
-  margin-top: var(--space-8);
   padding-top: var(--space-8);
   border-top: 1px solid var(--line);
 }
@@ -68,15 +68,6 @@ body > .site-header {
   margin-top: var(--space-5);
 }
 
-.static-source {
-  margin-top: var(--space-8);
-  color: var(--ink-meta);
-  font-size: var(--text-sm);
-}
-
-.static-source a {
-  color: inherit;
-}
 
 @media (max-width: 860px) {
   body > .site-header {

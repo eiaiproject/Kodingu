@@ -14,12 +14,15 @@ All notable changes to Kodingu are recorded here. The format follows [Keep a Cha
 
 - Control borders now meet 3:1 contrast, and no interface text is smaller than `0.75rem`.
 - Spacing, type, radius, motion, and preview colors use shared tokens; responsive rules use 600, 860, and 1080px.
+- Lesson and course pages show a loading state while their data modules resolve.
+- Static reading pages center the reading column and keep one primary action.
+- Framed surfaces share the 4px radius; controls and chips keep 2px.
 - The JavaScript preflight runs in a worker created inside a sandboxed frame, so it is isolated and still interruptible.
 - Font files are cached for one year and the site sends `Cross-Origin-Opener-Policy`.
 - The icon set only includes the 20 icons the site uses.
 - Certificate and page renderers use escaped HTML templates and smaller helpers.
 - README claims now match the shipped UI, sitemap, reset behavior, and content files.
-- The service worker cache advances to v20.
+- The service worker cache advances to v22.
 
 ### Removed
 
