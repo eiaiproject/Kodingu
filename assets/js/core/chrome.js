@@ -7,22 +7,14 @@ import { currentStreak, getProgress } from './storage.js';
 const THEME_KEY = 'kodingu.theme';
 
 let toastTimer = null;
-let iconSequence = 0;
 
 export function icon(name, options = {}) {
-  const { size = 20, weight = 'Outline', className = '', label = '' } = options;
-  const data = ICONS[name];
-  const style = weight === 'Filled' ? 'F' : 'O';
-  let body = '';
-  if (data) body = data[style] || data.O;
-  if (body.includes('clip0_')) {
-    const clipId = `kodingu-clip-${++iconSequence}`;
-    body = body.replace(/clip0_\d+_\d+/g, clipId);
-  }
+  const { size = 20, className = '', label = '' } = options;
+  const body = ICONS[name] || '';
   const accessibility = label
     ? `role="img" aria-label="${escapeHtml(label)}"`
     : 'aria-hidden="true" focusable="false"';
-  return `<svg class="icon ${className}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" ${accessibility}>${body}</svg>`;
+  return `<svg class="icon ${className}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${accessibility}>${body}</svg>`;
 }
 
 export function hydrateIcons(root = document) {
@@ -75,14 +67,49 @@ function updateThemeButton(theme) {
   button.title = dark ? 'Switch to light theme' : 'Switch to dark theme';
 }
 
-export function setTheme(theme) {
-  document.documentElement.dataset.theme = theme;
+let themeOverride = null;
+
+function systemTheme() {
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches === true ? 'dark' : 'light';
+}
+
+function storedTheme() {
+  if (themeOverride) return themeOverride;
   try {
-    localStorage.setItem(THEME_KEY, theme);
+    const value = localStorage.getItem(THEME_KEY);
+    if (value === 'light' || value === 'dark') return value;
   } catch (error) {
-    // The theme still applies for this page view when storage is unavailable.
+    // Storage can be unavailable, so this page keeps its in-memory choice.
   }
+  return null;
+}
+
+function applyTheme() {
+  const stored = storedTheme();
+  const theme = stored || systemTheme();
+  document.documentElement.dataset.theme = theme;
+  const scheme = document.querySelector('meta[name="color-scheme"]');
+  if (scheme) scheme.content = stored || 'light dark';
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+    const dark = (meta.getAttribute('media') || '').includes('dark');
+    meta.content = stored
+      ? theme === 'dark' ? '#191817' : '#F3EFE6'
+      : dark ? '#191817' : '#F3EFE6';
+  });
   updateThemeButton(theme);
+}
+
+function toggleTheme() {
+  const system = systemTheme();
+  const target = readTheme() === 'dark' ? 'light' : 'dark';
+  themeOverride = target === system ? null : target;
+  try {
+    if (themeOverride) localStorage.setItem(THEME_KEY, themeOverride);
+    else localStorage.removeItem(THEME_KEY);
+  } catch (error) {
+    // The choice still applies for this page view when storage is unavailable.
+  }
+  applyTheme();
 }
 
 export function getResumeTarget() {
@@ -117,7 +144,7 @@ function headerStatsMarkup(progress) {
   if (!xp && !streak) return '';
   return `
     <span class="header-stat" data-stat="xp">${icon('Gauge', { size: 16 })}<span></span></span>
-    <span class="header-stat" data-stat="streak">${icon('Fire', { size: 16 })}<span></span></span>
+    <span class="header-stat" data-stat="streak">${icon('Flame', { size: 16 })}<span></span></span>
   `;
 }
 
@@ -256,8 +283,16 @@ export function renderHeader() {
   updateThemeButton(theme);
 
   const themeButton = mount.querySelector('#theme-toggle');
-  themeButton?.addEventListener('click', () => {
-    setTheme(readTheme() === 'dark' ? 'light' : 'dark');
+  themeButton?.addEventListener('click', toggleTheme);
+
+  const scheme = window.matchMedia?.('(prefers-color-scheme: dark)');
+  scheme?.addEventListener('change', () => {
+    if (!storedTheme()) applyTheme();
+  });
+  window.addEventListener('storage', (event) => {
+    if (event.key !== THEME_KEY) return;
+    themeOverride = null;
+    applyTheme();
   });
 
   wireHeaderNav(mount.querySelector('#site-nav'), mount.querySelector('#nav-toggle'));
@@ -284,7 +319,7 @@ export function renderFooter() {
           <a href="progress.html">Progress</a>
           <a href="index.html#method">Method</a>
         </nav>
-        <p class="footer-note">Icons from <a href="https://reicon.dev" rel="noopener">Reicon</a>. Progress stays in this browser.</p>
+        <p class="footer-note">Icons from <a href="https://lucide.dev" rel="noopener">Lucide</a>. Progress stays in this browser.</p>
       </div>
     </footer>
   `;
@@ -308,7 +343,7 @@ export function wireSidebar(root) {
 
 export function renderMissingPage({ mount, sidebar, title, message, actionHref, actionLabel, parentHref, parentLabel }) {
   setPageTitle(title);
-  if (sidebar) sidebar.innerHTML = '';
+  if (sidebar) sidebar.replaceChildren();
   if (!mount) return;
   mount.innerHTML = `
     <div class="page-head">

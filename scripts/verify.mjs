@@ -484,7 +484,7 @@ async function checkUnitLessonTracking(page) {
     projectChecks.migrated.join(',')
   );
   assert(
-    [...projectChecks.afterEdit].sort((a, b) => a.localeCompare(b)).join(',') === 'Alpha,Gamma',
+    projectChecks.afterEdit.toSorted((a, b) => a.localeCompare(b)).join(',') === 'Alpha,Gamma',
     'project checks: reordering requirements keeps the same items ticked',
     projectChecks.afterEdit.join(',')
   );

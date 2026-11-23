@@ -18,8 +18,8 @@ export function renderChecks(results) {
     const stateMount = item.querySelector('.check-state');
     if (iconMount) {
       iconMount.innerHTML = pass
-        ? icon('CheckCircle', { size: 16 })
-        : icon('CloseCircle', { size: 16 });
+        ? icon('CircleCheck', { size: 16 })
+        : icon('CircleX', { size: 16 });
     }
     if (stateMount) stateMount.textContent = pass ? 'Pass' : 'Needs work';
   });
@@ -359,25 +359,43 @@ export function wireToggle(buttonSelector, panelSelector, showLabel, hideLabel, 
 
 export function wireCopyCode(root) {
   const timers = new WeakMap();
+  let lastMessage = '';
+
   root?.addEventListener('click', async (event) => {
     const button = event.target.closest('.copy-code');
     if (!button) return;
     const code = button.closest('.code-block')?.querySelector('code')?.textContent || '';
+    const status = button.closest('.copy-actions')?.querySelector('.copy-status');
     try {
       await navigator.clipboard.writeText(code);
       const original = button.dataset.copyOriginal || button.innerHTML;
       button.dataset.copyOriginal = original;
-      button.innerHTML = `${icon('Check', { size: 14 })} Copied`;
+      button.innerHTML = `${icon('Check', { size: 14 })} Copy`;
+      let message = 'Copied';
+      if (message === lastMessage) message += '\u00A0';
+      lastMessage = message;
+      if (status) {
+        status.dataset.state = 'success';
+        status.textContent = message;
+      }
       window.clearTimeout(timers.get(button));
       const timer = window.setTimeout(() => {
         button.innerHTML = original;
         delete button.dataset.copyOriginal;
+        if (status) {
+          status.textContent = '';
+          delete status.dataset.state;
+        }
         timers.delete(button);
       }, 2000);
       timers.set(button, timer);
     } catch (error) {
       // Clipboard access can be denied, so point the learner at manual copy.
       console.warn('Kodingu: clipboard copy failed.', error);
+      if (status) {
+        status.dataset.state = 'error';
+        status.textContent = 'Copy failed';
+      }
       toast('Copy failed. Select the code and copy it.');
     }
   });

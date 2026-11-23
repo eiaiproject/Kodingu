@@ -56,7 +56,7 @@ function renderProjects() {
             <div class="project-meta">
               <span>${icon('Clock', { size: 15 })} ${project.minutes} min</span>
               <span>${icon('Gauge', { size: 15 })} ${project.xp} XP</span>
-              <span>${icon('CheckCircle', { size: 15 })} ${project.requirements.length} self-checks</span>
+              <span>${icon('CircleCheck', { size: 15 })} ${project.requirements.length} self-checks</span>
             </div>
           </div>
           <div class="project-side">

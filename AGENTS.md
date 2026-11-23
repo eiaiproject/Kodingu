@@ -35,6 +35,7 @@ Node 22 or newer is required for the tooling.
 - Run `npm run lint` and `npm run verify` before calling a change done. If either fails, fix the cause instead of loosening the check.
 - Keep progress data in `localStorage`. Any schema change needs a migration path for `kodingu.progress.v1`.
 - Bump the cache name in `sw.js` when the shell changes.
+- Use the spacing scale and layout rhythm in `SPACING.md`; do not add raw margin, padding, or gap values.
 - Do not add a build step or a runtime dependency to the site.
 
 ## Antislop

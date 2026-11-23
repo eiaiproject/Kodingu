@@ -61,7 +61,7 @@ function renderSidebar() {
                 <a href="project.html?project=${encodeURIComponent(item.id)}"${item.id === project.id ? ' aria-current="page"' : ''}>
                   <span class="sidebar-num">${String(index + 1).padStart(2, '0')}</span>
                   <span>${escapeHtml(item.title)}</span>
-                  ${progress.completedProjects[item.id] ? `<span class="sidebar-check">${icon('CheckCircle', { size: 15, label: 'Complete' })}</span>` : ''}
+                  ${progress.completedProjects[item.id] ? `<span class="sidebar-check">${icon('CircleCheck', { size: 15, label: 'Complete' })}</span>` : ''}
                 </a>
               </li>
             `
@@ -92,7 +92,7 @@ function completedPanelMarkup(progress) {
   const next = nextProject();
   return `
     <section class="finish-panel is-complete" id="finish-panel" aria-labelledby="finish-heading">
-      <h2 class="finish-title" id="finish-heading">${icon('CheckCircle', { size: 20 })} Project complete</h2>
+      <h2 class="finish-title" id="finish-heading">${icon('CircleCheck', { size: 20 })} Project complete</h2>
       <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${project.xp} XP. The file is still yours to download and keep working on.</p>
       <div class="finish-actions">
         ${next ? `<a class="button button-primary" href="project.html?project=${encodeURIComponent(next.id)}">Next project: ${escapeHtml(next.title)}</a>` : '<a class="button button-primary" href="projects.html">All projects</a>'}
@@ -138,8 +138,8 @@ function projectHeaderMarkup(project, completed) {
         <span>${icon('Layers', { size: 16 })} ${escapeHtml(project.language)}</span>
         <span>${icon('Clock', { size: 16 })} ${project.minutes} min</span>
         <span>${icon('Gauge', { size: 16 })} ${project.xp} XP</span>
-        <span>${icon('CheckCircle', { size: 16 })} ${project.requirements.length} self-checks</span>
-        ${completed ? `<span>${icon('CheckCircle', { size: 16 })} Complete</span>` : ''}
+        <span>${icon('CircleCheck', { size: 16 })} ${project.requirements.length} self-checks</span>
+        ${completed ? `<span>${icon('CircleCheck', { size: 16 })} Complete</span>` : ''}
       </div>
       <div class="goal">
         <span class="goal-label">Project</span>

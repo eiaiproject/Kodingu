@@ -65,7 +65,7 @@ function renderSidebar() {
                 <a href="challenge.html?challenge=${encodeURIComponent(item.id)}"${item.id === challenge.id ? ' aria-current="page"' : ''}>
                   <span class="sidebar-num">${String(index + 1).padStart(2, '0')}</span>
                   <span>${escapeHtml(item.title)}</span>
-                  ${progress.completedChallenges[item.id] ? `<span class="sidebar-check">${icon('CheckCircle', { size: 15, label: 'Complete' })}</span>` : ''}
+                  ${progress.completedChallenges[item.id] ? `<span class="sidebar-check">${icon('CircleCheck', { size: 15, label: 'Complete' })}</span>` : ''}
                 </a>
               </li>
             `
@@ -92,11 +92,15 @@ function renderNotFound() {
 }
 
 function codeBlock(code, lang) {
+  const label = lang === 'js' ? 'JavaScript' : String(lang).toUpperCase();
   return `
     <div class="code-block">
       <div class="code-head">
         <span class="code-lang">${escapeHtml(lang)}</span>
-        <button class="copy-code" type="button">${icon('Copy', { size: 14 })} Copy</button>
+        <span class="copy-actions">
+          <button class="copy-code" type="button" aria-label="Copy ${escapeHtml(label)} code">${icon('Copy', { size: 14 })} Copy</button>
+          <span class="copy-status" role="status"></span>
+        </span>
       </div>
       <pre><code>${escapeHtml(code)}</code></pre>
     </div>
@@ -108,7 +112,7 @@ function completedPanelMarkup(progress) {
   const next = challengeAt(1);
   return `
     <section class="finish-panel is-complete" id="finish-panel" aria-labelledby="finish-heading">
-      <h2 class="finish-title" id="finish-heading">${icon('CheckCircle', { size: 20 })} Challenge complete</h2>
+      <h2 class="finish-title" id="finish-heading">${icon('CircleCheck', { size: 20 })} Challenge complete</h2>
       <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${challenge.xp} XP. Extra practice does not change course progress.</p>
       <div class="finish-actions">
         ${next ? `<a class="button button-primary" href="challenge.html?challenge=${encodeURIComponent(next.id)}">Next challenge: ${escapeHtml(next.title)}</a>` : '<a class="button button-primary" href="practice.html">All challenges</a>'}
@@ -149,7 +153,7 @@ function challengeHeaderMarkup(challenge, meta, completed) {
         <span>${icon('Clock', { size: 16 })} ${challenge.minutes} min</span>
         <span>${icon('Gauge', { size: 16 })} ${challenge.xp} XP</span>
         <span>${icon('Target', { size: 16 })} ${challenge.tests.length} checks</span>
-        ${completed ? `<span>${icon('CheckCircle', { size: 16 })} Complete</span>` : ''}
+        ${completed ? `<span>${icon('CircleCheck', { size: 16 })} Complete</span>` : ''}
       </div>
       <div class="goal">
         <span class="goal-label">Goal</span>
@@ -286,7 +290,7 @@ function wireChallenge() {
     finishButton.disabled = !testsPassed;
     if (checks) {
       checks.classList.toggle('is-done', testsPassed);
-      checks.innerHTML = `${testsPassed ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
+      checks.innerHTML = `${testsPassed ? icon('CircleCheck', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
     }
     if (hint) {
       hint.textContent = testsPassed ? 'Ready when you are.' : 'Pass every check to finish.';

@@ -3,18 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Offline · Kodingu</title>
   <meta name="description" content="Kodingu could not reach the network. Pages you opened before are still available offline.">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#F3EFE6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/public-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/shippori-mincho-500.woff2" as="font" type="font/woff2" crossorigin>
   <script src="assets/js/core/theme-init.js"></script>
   <link rel="stylesheet" href="assets/css/fonts.css">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
   <header class="site-header">
     <div class="shell header-inner">
       <a class="brand" href="index.html" aria-label="Kodingu home">
@@ -28,10 +33,10 @@
     <p class="section-label">Offline</p>
     <h1>You are offline.</h1>
     <p class="lede">Kodingu could not reach the network. Pages you opened before are still available, and your progress stays in this browser.</p>
-    <div class="hero-actions">
+    <nav class="hero-actions" aria-label="Offline">
       <a class="button button-primary" href="index.html">Try the home page</a>
       <a class="button button-secondary" href="catalog.html">Open the catalog</a>
-    </div>
+    </nav>
   </main>
 
   <footer class="site-footer">

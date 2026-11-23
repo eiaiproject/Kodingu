@@ -80,11 +80,15 @@ function markLoaded(selector) {
 }
 
 function codeBlock(code, lang = 'html') {
+  const label = lang === 'js' ? 'JavaScript' : lang.toUpperCase();
   return `
     <div class="code-block">
       <div class="code-head">
         <span class="code-lang">${escapeHtml(lang === 'js' ? 'javascript' : lang)}</span>
-        <button class="copy-code" type="button">${icon('Copy', { size: 14 })} Copy</button>
+        <span class="copy-actions">
+          <button class="copy-code" type="button" aria-label="Copy ${escapeHtml(label)} code">${icon('Copy', { size: 14 })} Copy</button>
+          <span class="copy-status" role="status"></span>
+        </span>
       </div>
       <pre><code>${escapeHtml(code)}</code></pre>
     </div>
@@ -99,7 +103,7 @@ function renderBlock(block) {
   if (block.type === 'p') return `<p>${escapeHtml(block.text)}</p>`;
   if (block.type === 'h3') return `<h3>${escapeHtml(block.text)}</h3>`;
   if (block.type === 'note') {
-    return `<aside class="note"><span class="note-label">Note</span><p>${escapeHtml(block.text)}</p></aside>`;
+    return `<aside class="note" aria-label="Note"><span class="note-label">Note</span><p>${escapeHtml(block.text)}</p></aside>`;
   }
   if (block.type === 'list') {
     return `<ul>${listItems(block.items)}</ul>`;
@@ -138,7 +142,7 @@ function renderSidebar() {
                 <a href="lesson.html?course=${encodeURIComponent(course.id)}&amp;lesson=${encodeURIComponent(item.id)}"${item.id === lesson.id ? ' aria-current="page"' : ''}>
                   <span class="sidebar-num">${String(index + 1).padStart(2, '0')}</span>
                   <span>${escapeHtml(item.title)}</span>
-                  ${progress.completed[item.id] ? `<span class="sidebar-check">${icon('CheckCircle', { size: 15, label: 'Complete' })}</span>` : ''}
+                  ${progress.completed[item.id] ? `<span class="sidebar-check">${icon('CircleCheck', { size: 15, label: 'Complete' })}</span>` : ''}
                 </a>
               </li>
             `
@@ -171,7 +175,7 @@ function completedPanelMarkup() {
 
   return `
     <section class="finish-panel is-complete" id="finish-panel" aria-labelledby="finish-heading">
-      <h2 class="finish-title" id="finish-heading">${icon('CheckCircle', { size: 20 })} ${allDone ? 'Course complete' : 'Lesson complete'}</h2>
+      <h2 class="finish-title" id="finish-heading">${icon('CircleCheck', { size: 20 })} ${allDone ? 'Course complete' : 'Lesson complete'}</h2>
       <p class="muted">Finished ${escapeHtml(formatRelativeDate(entry?.at))}. You earned ${lesson.xp} XP. You can keep editing your work.</p>
       <div class="finish-actions">
         <a class="button button-primary" href="${nextHref}">${nextLabel}</a>
@@ -183,7 +187,7 @@ function completedPanelMarkup() {
 }
 
 function unfinishedPanelMarkup(lesson, quizDone) {
-  const quizMark = quizDone ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>';
+  const quizMark = quizDone ? icon('CircleCheck', { size: 15 }) : '<span class="check-pending"></span>';
   return `
       <section class="finish-panel" id="finish-panel" aria-labelledby="finish-heading">
         <h2 class="finish-title" id="finish-heading">Finish this lesson</h2>
@@ -215,7 +219,7 @@ function lessonHeaderMarkup(course, module, lesson, index, total, complete) {
         <span>${icon('Clock', { size: 16 })} ${lesson.minutes} min</span>
         <span>${icon('Gauge', { size: 16 })} ${lesson.xp} XP</span>
         <span>${icon('Layers', { size: 16 })} Lesson ${index + 1} of ${total}</span>
-        ${complete ? `<span>${icon('CheckCircle', { size: 16 })} Complete</span>` : ''}
+        ${complete ? `<span>${icon('CircleCheck', { size: 16 })} Complete</span>` : ''}
       </div>
       <div class="goal">
         <span class="goal-label">Goal</span>
@@ -237,7 +241,7 @@ function quizMarkup(lesson, quizDone) {
     )
     .join('');
   const feedback = quizDone
-    ? `<output class="feedback is-pass" role="status" tabindex="-1">${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span></output>`
+    ? `<output class="feedback is-pass" role="status" tabindex="-1">${icon('CircleCheck', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span></output>`
     : `<output class="feedback" id="quiz-feedback" role="status" tabindex="-1" hidden></output>`;
   return { options, feedback };
 }
@@ -408,7 +412,7 @@ function wireQuiz(lesson, state, updateFinishState) {
       if (feedback) {
         feedback.className = 'feedback is-pass';
         feedback.hidden = false;
-        feedback.innerHTML = `${icon('CheckCircle', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span>`;
+        feedback.innerHTML = `${icon('CircleCheck', { size: 16 })}<span>${escapeHtml(lesson.quiz.explanation)}</span>`;
         feedback.focus();
       }
       quizCheck.remove();
@@ -420,7 +424,7 @@ function wireQuiz(lesson, state, updateFinishState) {
       if (feedback) {
         feedback.className = 'feedback is-fail';
         feedback.hidden = false;
-        feedback.innerHTML = `${icon('CloseCircle', { size: 16 })}<span>That is not the one. ${escapeHtml(lesson.quiz.explanation)}</span>`;
+        feedback.innerHTML = `${icon('CircleX', { size: 16 })}<span>That is not the one. ${escapeHtml(lesson.quiz.explanation)}</span>`;
         feedback.focus();
       }
       toast('Not quite. Try again.');
@@ -455,11 +459,11 @@ function wireLesson(lesson, quizDone) {
     const hint = document.querySelector('#finish-hint');
     if (quiz) {
       quiz.classList.toggle('is-done', state.quizCorrect);
-      quiz.innerHTML = `${state.quizCorrect ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Quiz`;
+      quiz.innerHTML = `${state.quizCorrect ? icon('CircleCheck', { size: 15 }) : '<span class="check-pending"></span>'} Quiz`;
     }
     if (checks) {
       checks.classList.toggle('is-done', testsPassed);
-      checks.innerHTML = `${testsPassed ? icon('CheckCircle', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
+      checks.innerHTML = `${testsPassed ? icon('CircleCheck', { size: 15 }) : '<span class="check-pending"></span>'} Checks`;
     }
     finishButton.disabled = !(state.quizCorrect && testsPassed);
     if (hint) {
@@ -519,7 +523,7 @@ function renderLoadFailure() {
   setPageTitle('Lesson could not load');
   const sidebar = document.querySelector('#lesson-sidebar');
   const main = document.querySelector('#lesson-main');
-  if (sidebar) sidebar.innerHTML = '';
+  if (sidebar) sidebar.replaceChildren();
   markLoaded('#lesson-sidebar');
   markLoaded('#lesson-main');
   if (!main) return;
@@ -546,7 +550,7 @@ function renderNotFound() {
   setPageTitle('Lesson not found');
   const sidebar = document.querySelector('#lesson-sidebar');
   const main = document.querySelector('#lesson-main');
-  if (sidebar) sidebar.innerHTML = '';
+  if (sidebar) sidebar.replaceChildren();
   markLoaded('#lesson-sidebar');
   markLoaded('#lesson-main');
   if (!main) return;
