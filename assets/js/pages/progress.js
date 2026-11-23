@@ -156,7 +156,7 @@ function renderHistory() {
           return `
             <li class="history-card">
               <div class="history-card-top">
-                <span class="history-icon">${icon('CheckCircle', { size: 16, label: 'Finished' })}</span>
+                <span class="history-icon">${icon('CircleCheck', { size: 16, label: 'Finished' })}</span>
                 <span class="history-course">${escapeHtml(label)}</span>
               </div>
               <p class="history-card-title"><a href="${href}">${escapeHtml(entry.title || entry.id)}</a></p>

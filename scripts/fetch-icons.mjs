@@ -1,61 +1,53 @@
 import { writeFile } from 'node:fs/promises';
 
-const VERSION = '1.2.5';
+const VERSION = '1.78.0';
 const names = [
-  'ArrowRight',
-  'Award',
-  'BookOpen',
-  'Check',
-  'CheckCircle',
-  'ChevronDown',
-  'Clock',
-  'CloseCircle',
-  'Code',
-  'Copy',
-  'Fire',
-  'Gauge',
-  'GraduationCap',
-  'Layers',
-  'Menu',
-  'Moon',
-  'Play',
-  'Save',
-  'Sun',
-  'Target'
+  ['ArrowRight', 'arrow-right'],
+  ['Award', 'award'],
+  ['BookOpen', 'book-open'],
+  ['Check', 'check'],
+  ['ChevronDown', 'chevron-down'],
+  ['CircleCheck', 'circle-check'],
+  ['CircleX', 'circle-x'],
+  ['Clock', 'clock'],
+  ['Code', 'code'],
+  ['Copy', 'copy'],
+  ['Flame', 'flame'],
+  ['Gauge', 'gauge'],
+  ['GraduationCap', 'graduation-cap'],
+  ['Layers', 'layers'],
+  ['Menu', 'menu'],
+  ['Moon', 'moon'],
+  ['Play', 'play'],
+  ['Save', 'save'],
+  ['Sun', 'sun'],
+  ['Target', 'target']
 ];
 
-const base = `https://cdn.jsdelivr.net/npm/reicon@${VERSION}/icons`;
+const base = `https://cdn.jsdelivr.net/npm/lucide-static@${VERSION}/icons`;
 const icons = Object.fromEntries(
   await Promise.all(
-    names.map(async (name) => {
-      const response = await fetch(`${base}/${name}.js`);
+    names.map(async ([name, slug]) => {
+      const response = await fetch(`${base}/${slug}.svg`);
       if (!response.ok) {
-        throw new Error(`Missing Reicon icon: ${name} (${response.status})`);
+        throw new Error(`Missing Lucide icon: ${name} (${response.status})`);
       }
       const source = await response.text();
-      const match = /createIcon\('([^']+)',\s*\{([\s\S]*?)\}\);/.exec(source);
+      const match = /<svg[^>]*>([\s\S]*?)<\/svg>/.exec(source);
       if (!match) {
-        throw new Error(`Could not parse Reicon icon: ${name}`);
+        throw new Error(`Could not parse Lucide icon: ${name}`);
       }
-      const body = match[2];
-      const outline = /O:\s*`([\s\S]*?)`/.exec(body);
-      const filled = /F:\s*`([\s\S]*?)`/.exec(body);
-      return [
-        name,
-        {
-          O: outline ? outline[1] : '',
-          F: filled ? filled[1] : ''
-        }
-      ];
+      const body = match[1].replace(/\s+/g, ' ').trim();
+      return [name, body];
     })
   )
 );
 
 const output = [
-  `// Generated from reicon@${VERSION} (MIT). https://reicon.dev`,
+  `// Generated from lucide-static@${VERSION} (ISC). https://lucide.dev`,
   'export const ICONS = {',
-  ...Object.entries(icons).map(([name, data]) => {
-    return `  ${JSON.stringify(name)}: { O: ${JSON.stringify(data.O)}, F: ${JSON.stringify(data.F)} },`;
+  ...Object.entries(icons).map(([name, body]) => {
+    return `  ${JSON.stringify(name)}: ${JSON.stringify(body)},`;
   }),
   '};',
   ''

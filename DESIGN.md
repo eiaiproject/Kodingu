@@ -54,9 +54,9 @@ Hover, focus, and state transitions only. 120 to 180ms. No scroll reveals, no pa
 
 ## Iconography
 
-All icons come from [Reicon](https://reicon.dev), MIT licensed. The set is used at 16 to 20px, outline weight. Icons appear only where they carry meaning: course, lesson, run, preview, hint, streak, XP, certificate, warning, and state.
+All icons come from [Lucide](https://lucide.dev), ISC licensed. The set is used at 16 to 20px with a 2px stroke. Icons appear only where they carry meaning: course, lesson, run, preview, hint, streak, XP, certificate, warning, and state.
 
-The brand mark is the Reicon `Code` glyph in a vermilion square. It is a placeholder until the owner supplies a final logo. The favicon uses the same glyph.
+The brand mark is the Lucide `Code` glyph in a vermilion square. It is a placeholder until the owner supplies a final logo. The favicon uses the same glyph.
 
 No emoji. No hand-drawn SVG icons. No sparkle, star, magic, lightning, robot, or orb icons.
 
@@ -90,6 +90,7 @@ Examples:
 - **Radius follows role:** controls and chips use 2px, framed surfaces use 4px, and the printable certificate stays square because it stands in for paper.
 - **No motif pattern:** the chosen direction is Zen minimal, so texture would add noise without meaning.
 - **Working light and dark themes:** the product is content-first, so the reader gets the choice.
+- **System-aware theming:** the page follows the system scheme by default and uses `light-dark()` tokens, so native UI stays in sync; an explicit choice pins the scheme until the reader returns to system.
 - **44px controls on mobile:** the audience may be learning on a phone between other tasks, so the primary controls need a comfortable target.
 - **Empty and error states:** progress can be empty and a URL can be wrong, so both are designed instead of leaving a blank panel.
 - **HTML before CSS:** a complete HTML course is more useful than three empty catalogs, so HTML opened first.

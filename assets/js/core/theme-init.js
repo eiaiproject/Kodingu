@@ -6,16 +6,23 @@
     stored = null;
   }
 
-  let theme;
-  if (stored === 'light' || stored === 'dark') {
-    theme = stored;
-  } else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches === true) {
-    theme = 'dark';
-  } else {
-    theme = 'light';
-  }
+  const storedTheme = stored === 'light' || stored === 'dark' ? stored : null;
+  const systemTheme =
+    window.matchMedia?.('(prefers-color-scheme: dark)').matches === true ? 'dark' : 'light';
+  const theme = storedTheme || systemTheme;
 
   document.documentElement.dataset.theme = theme;
+  const scheme = document.querySelector('meta[name="color-scheme"]');
+  if (scheme) scheme.content = storedTheme || 'light dark';
+
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+    let activeTheme = theme;
+    if (!storedTheme) {
+      const media = meta.getAttribute('media') || '';
+      activeTheme = media.includes('dark') ? 'dark' : 'light';
+    }
+    meta.content = activeTheme === 'dark' ? '#191817' : '#F3EFE6';
+  });
 
   // Reading pages only load this script, so skip-link focus lives here too.
   const focusMain = () => {

@@ -1,23 +1,25 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
+  accent-color: var(--accent);
 
-  --paper: #f3efe6;
-  --paper-raised: #faf7f0;
-  --paper-sunken: #eae4d8;
-  --ink: #1f1d1a;
-  --ink-soft: #4a463f;
-  --ink-meta: #6b655b;
-  --line: #d6cfc2;
-  --line-strong: #b9b0a1;
-  --control-border: #857c6d;
-  --accent: #b23a2f;
-  --accent-strong: #963027;
-  --accent-ink: #ffffff;
-  --pass: #2f6b4f;
-  --warn: #8a5a1f;
-  --focus: #1f1d1a;
+  --paper: light-dark(#f3efe6, #191817);
+  --paper-raised: light-dark(#faf7f0, #211f1d);
+  --paper-sunken: light-dark(#eae4d8, #141312);
+  --ink: light-dark(#1f1d1a, #f0ebe1);
+  --ink-soft: light-dark(#4a463f, #c9c2b6);
+  --ink-meta: light-dark(#6b655b, #a39b8d);
+  --line: light-dark(#d6cfc2, #3a3632);
+  --line-strong: light-dark(#b9b0a1, #4e4943);
+  --control-border: light-dark(#857c6d, #7a746d);
+  --accent: light-dark(#b23a2f, #e0604f);
+  --accent-strong: light-dark(#963027, #ef7a6a);
+  --accent-ink: light-dark(#ffffff, #191817);
+  --pass: light-dark(#2f6b4f, #8cc4a6);
+  --warn: light-dark(#8a5a1f, #d6a05c);
+  --focus: light-dark(#1f1d1a, #f0ebe1);
 
-  /* Spacing */
+  /* Spacing scale: 4px base. 6px is the only half-step, for tight inline
+     and controls. Add values here, not in component rules. See SPACING.md. */
   --space-1: 0.25rem;
   --space-2: 0.375rem;
   --space-3: 0.5rem;
@@ -54,6 +56,15 @@
   --shell: 1160px;
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
 
+  /* Layout rhythm. Section and grid rules use these tokens. */
+  --section-space-sm: clamp(2rem, 4vw, 3rem);
+  --section-space: clamp(2.5rem, 5vw, 4.5rem);
+  --section-space-lg: clamp(3.5rem, 8vw, 6.5rem);
+  --grid-gap-sm: clamp(1rem, 3vw, 2.5rem);
+  --grid-gap: clamp(1.5rem, 4vw, 4rem);
+  --grid-gap-lg: clamp(2rem, 5vw, 5rem);
+  --header-height: 64px;
+
   --motion: 150ms;
   --scroll-behavior: smooth;
 
@@ -63,24 +74,12 @@
   --preview-meta: #6b655b;
 }
 
-[data-theme="dark"] {
-  color-scheme: dark;
+:root:has(> head > meta[name="color-scheme"][content="light"]) {
+  color-scheme: light;
+}
 
-  --paper: #191817;
-  --paper-raised: #211f1d;
-  --paper-sunken: #141312;
-  --ink: #f0ebe1;
-  --ink-soft: #c9c2b6;
-  --ink-meta: #a39b8d;
-  --line: #3a3632;
-  --line-strong: #4e4943;
-  --control-border: #7a746d;
-  --accent: #e0604f;
-  --accent-strong: #ef7a6a;
-  --accent-ink: #191817;
-  --pass: #8cc4a6;
-  --warn: #d6a05c;
-  --focus: #f0ebe1;
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
+  color-scheme: dark;
 }
 
 *,
@@ -96,7 +95,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: var(--scroll-behavior);
-  scroll-padding-top: var(--space-12);
+  scroll-padding-top: calc(var(--header-height) + var(--space-5));
 }
 
 body {
@@ -185,7 +184,7 @@ ol {
 }
 
 .section {
-  padding-block: clamp(3.5rem, 8vw, 6.5rem);
+  padding-block: var(--section-space-lg);
 }
 
 .section-label {

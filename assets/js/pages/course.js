@@ -38,7 +38,7 @@ function renderNotFound() {
       </div>
     `;
   }
-  if (content) content.innerHTML = '';
+  if (content) content.replaceChildren();
   markLoaded();
 }
 
@@ -46,7 +46,7 @@ function lessonRows(course, lessons, completed) {
   return lessons
     .map((lesson, index) => {
       const state = completed[lesson.id]
-        ? icon('CheckCircle', { size: 18, label: 'Complete' })
+        ? icon('CircleCheck', { size: 18, label: 'Complete' })
         : icon('ArrowRight', { size: 18, label: 'Open lesson' });
       return `
         <li class="lesson-row">

@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-7);
-  min-height: 64px;
+  min-height: var(--header-height);
 }
 
 .brand {
@@ -53,22 +53,24 @@
   margin-left: auto;
 }
 
-.site-nav a {
+.site-nav a:not(.nav-cta) {
   padding-block: var(--space-2);
-  border-bottom: 1px solid transparent;
   color: var(--ink-soft);
   font-size: var(--text-md);
-  text-decoration: none;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.35em;
 }
 
-.site-nav a:hover {
+.site-nav a:not(.nav-cta):hover {
   color: var(--ink);
-  border-bottom-color: var(--control-border);
+  text-decoration-color: var(--control-border);
 }
 
 .site-nav a[aria-current="page"] {
   color: var(--ink);
-  border-bottom-color: var(--accent);
+  text-decoration-color: var(--accent);
 }
 
 .site-nav .nav-cta {
@@ -237,13 +239,13 @@
 
 /* Hero */
 .hero {
-  padding-block: clamp(2.5rem, 6vw, 5.5rem) clamp(3rem, 7vw, 6rem);
+  padding-block: var(--section-space) var(--section-space-lg);
 }
 
 .hero-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: clamp(1.5rem, 4vw, 4rem);
+  gap: var(--grid-gap);
   align-items: center;
 }
 
@@ -398,7 +400,7 @@
 
 /* Method band */
 .method {
-  padding-block: clamp(3rem, 6vw, 4.5rem);
+  padding-block: var(--section-space);
   border-block: 1px solid var(--line);
   background: var(--paper-sunken);
 }
@@ -406,7 +408,7 @@
 .method-grid {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
-  gap: clamp(2rem, 6vw, 5rem);
+  gap: var(--grid-gap-lg);
 }
 
 .method-intro h2 {
@@ -536,7 +538,7 @@
 .split-grid {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
-  gap: clamp(2rem, 6vw, 5rem);
+  gap: var(--grid-gap-lg);
 }
 
 .split-intro h2 {
@@ -576,7 +578,7 @@
 
 /* Closing */
 .closing {
-  padding-block: clamp(3.5rem, 8vw, 7rem);
+  padding-block: var(--section-space-lg);
   border-top: 1px solid var(--line);
 }
 
@@ -611,7 +613,7 @@
 
 /* Footer */
 .site-footer {
-  padding-block: clamp(2rem, 4vw, 3rem);
+  padding-block: var(--section-space-sm);
   border-top: 1px solid var(--line);
   background: var(--paper);
 }
@@ -619,7 +621,7 @@
 .footer-inner {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(8rem, 0.8fr) minmax(0, 1fr);
-  gap: clamp(1.5rem, 3vw, 2.5rem);
+  gap: var(--grid-gap-sm);
   align-items: start;
 }
 
@@ -659,7 +661,7 @@
 
 /* Page heads */
 .page-head {
-  padding-block: clamp(2.5rem, 6vw, 4.5rem) clamp(2rem, 4vw, 3rem);
+  padding-block: var(--section-space) var(--section-space-sm);
 }
 
 .page-head h1 {
@@ -702,8 +704,8 @@
 .catalog-item {
   display: grid;
   grid-template-columns: 3rem minmax(0, 1fr) 16rem;
-  gap: clamp(1rem, 3vw, 2.5rem);
-  padding: clamp(1.5rem, 3vw, 2.25rem) 0;
+  gap: var(--grid-gap-sm);
+  padding: clamp(var(--space-6), 3vw, var(--space-8)) 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -726,7 +728,7 @@
   font-size: var(--text-3xl);
   line-height: 1.2;
   padding-block: var(--space-3);
-  margin-block: -0.45rem;
+  margin-block: calc(var(--space-3) * -1);
   text-decoration: none;
 }
 
@@ -803,14 +805,14 @@
 
 /* Course page */
 .course-hero {
-  padding-block: clamp(2rem, 5vw, 4rem) clamp(2.5rem, 5vw, 4rem);
+  padding-block: var(--section-space);
   border-bottom: 1px solid var(--line);
 }
 
 .course-hero-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 18rem;
-  gap: clamp(2rem, 5vw, 4rem);
+  gap: var(--grid-gap-lg);
   align-items: end;
 }
 
@@ -884,7 +886,7 @@
 }
 
 .module {
-  padding-block: clamp(2rem, 4vw, 3rem);
+  padding-block: var(--section-space-sm);
   border-bottom: 1px solid var(--line);
 }
 
@@ -979,15 +981,15 @@
   display: grid;
   grid-template-columns: 17rem minmax(0, 760px);
   justify-content: space-between;
-  gap: clamp(2rem, 5vw, 4.5rem);
+  gap: var(--grid-gap-lg);
   align-items: start;
   padding-block: var(--space-8) var(--space-12);
 }
 
 .lesson-sidebar {
   position: sticky;
-  top: 88px;
-  max-height: calc(100vh - 112px);
+  top: calc(var(--header-height) + var(--space-7));
+  max-height: calc(100vh - var(--header-height) - (var(--space-7) * 2));
   overflow: auto;
   padding-top: var(--space-5);
   border-top: 1px solid var(--line-strong);
@@ -1217,6 +1219,23 @@
 .copy-code:hover {
   background: var(--paper);
   color: var(--ink);
+}
+
+.copy-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.copy-status {
+  color: var(--pass);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.copy-status[data-state="error"] {
+  color: var(--accent);
 }
 
 .code-block pre {
@@ -1641,7 +1660,7 @@
 }
 
 .stat {
-  padding: var(--space-6) clamp(1rem, 2vw, 1.5rem);
+  padding: var(--space-6) clamp(var(--space-4), 2vw, var(--space-7));
   border-right: 1px solid var(--line);
 }
 
@@ -1674,7 +1693,7 @@
 }
 
 .progress-section {
-  padding-block: clamp(2rem, 4vw, 3rem);
+  padding-block: var(--section-space-sm);
 }
 
 .progress-section h2 {
@@ -1717,10 +1736,7 @@
 }
 
 .section-heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
   gap: var(--space-5);
   margin-bottom: var(--space-5);
 }
@@ -2005,7 +2021,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
-  margin-block: clamp(2rem, 4vw, 3rem);
+  margin-block: var(--section-space-sm);
   padding: var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-surface);
@@ -2081,7 +2097,7 @@
   gap: var(--space-5);
   max-width: 52rem;
   margin-inline: auto;
-  padding: clamp(2rem, 6vw, 4.5rem);
+  padding: clamp(var(--space-8), 6vw, var(--space-11));
   border: 1px solid var(--line-strong);
   background: var(--paper-raised);
   text-align: center;
@@ -2543,7 +2559,7 @@
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 1.25rem;
+  bottom: var(--space-6);
   z-index: 80;
   max-width: calc(100vw - 2rem);
   padding: var(--space-4) var(--space-5);
@@ -2987,10 +3003,6 @@
 
   .brand-word {
     font-size: var(--text-lg);
-  }
-
-  .hero {
-    padding-block: var(--space-8) var(--space-10);
   }
 
   .hero-actions .button {

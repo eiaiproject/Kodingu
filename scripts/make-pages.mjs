@@ -22,14 +22,9 @@ function clip(text, max = 158) {
 }
 
 function icon(name, size = 16) {
-  let body = ICONS[name]?.O || '';
-  if (body.includes('clip0_')) {
-    icon.sequence += 1;
-    body = body.replaceAll(/clip0_\d+_\d+/g, `kodingu-static-clip-${icon.sequence}`);
-  }
-  return `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">${body}</svg>`;
+  const body = ICONS[name] || '';
+  return `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
 }
-icon.sequence = 0;
 
 function codeBlock(block) {
   return `
@@ -47,7 +42,7 @@ function renderBlock(block) {
   if (block.type === 'p') return `<p>${escapeHtml(block.text)}</p>`;
   if (block.type === 'h3') return `<h3>${escapeHtml(block.text)}</h3>`;
   if (block.type === 'note') {
-    return `<aside class="note"><span class="note-label">Note</span><p>${escapeHtml(block.text)}</p></aside>`;
+    return `<aside class="note" aria-label="Note"><span class="note-label">Note</span><p>${escapeHtml(block.text)}</p></aside>`;
   }
   if (block.type === 'list') {
     return `<ul>${listMarkup(block.items)}</ul>`;
@@ -92,7 +87,7 @@ function footerMarkup() {
           <a href="../progress.html">Progress</a>
           <a href="../index.html#method">Method</a>
         </nav>
-        <p class="footer-note">Icons from <a href="https://reicon.dev" rel="noopener">Reicon</a>. Progress stays in this browser.</p>
+        <p class="footer-note">Icons from <a href="https://lucide.dev" rel="noopener">Lucide</a>. Progress stays in this browser.</p>
       </div>
     </footer>`;
 }
@@ -156,6 +151,7 @@ function renderLessonPage({ course, module, lesson, index, lessons }) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(description)}">
   <meta name="robots" content="index, follow">
@@ -177,6 +173,8 @@ function renderLessonPage({ course, module, lesson, index, lessons }) {
   <meta name="theme-color" content="#F3EFE6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/public-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/shippori-mincho-500.woff2" as="font" type="font/woff2" crossorigin>
   <script src="../assets/js/core/theme-init.js"></script>
   <link rel="stylesheet" href="../assets/css/fonts.css">
   <link rel="stylesheet" href="../assets/css/base.css">
@@ -247,7 +245,6 @@ function renderLessonPage({ course, module, lesson, index, lessons }) {
 
 export function buildLessonPages() {
   const pages = new Map();
-  icon.sequence = 0;
   for (const course of courses) {
     const lessons = course.modules.flatMap((module) => module.lessons);
     lessons.forEach((lesson, index) => {

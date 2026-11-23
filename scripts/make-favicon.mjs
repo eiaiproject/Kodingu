@@ -1,14 +1,14 @@
 import { writeFile } from 'node:fs/promises';
 import { ICONS } from '../assets/js/core/icons.js';
 
-const path = ICONS.Code.O;
+const path = ICONS.Code;
 if (!path) {
   throw new Error('Code icon is missing');
 }
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Kodingu">
   <rect width="32" height="32" rx="4" fill="#B23A2F"/>
-  <g transform="translate(4 4)" color="#F3EFE6">${path}</g>
+  <g transform="translate(4 4)" color="#F3EFE6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</g>
 </svg>
 `;
 
