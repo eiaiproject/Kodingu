@@ -91,10 +91,12 @@ function applyTheme() {
   const scheme = document.querySelector('meta[name="color-scheme"]');
   if (scheme) scheme.content = stored || 'light dark';
   document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
-    const dark = (meta.getAttribute('media') || '').includes('dark');
-    meta.content = stored
-      ? theme === 'dark' ? '#191817' : '#F3EFE6'
-      : dark ? '#191817' : '#F3EFE6';
+    let activeTheme = theme;
+    if (!stored) {
+      const media = meta.getAttribute('media') || '';
+      activeTheme = media.includes('dark') ? 'dark' : 'light';
+    }
+    meta.content = activeTheme === 'dark' ? '#191817' : '#F3EFE6';
   });
   updateThemeButton(theme);
 }
