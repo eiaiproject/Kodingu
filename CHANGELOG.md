@@ -12,6 +12,7 @@ All notable changes to Kodingu are recorded here. The format follows [Keep a Cha
 
 ### Changed
 
+- Reading measure now covers goals, requirements, project summaries, footnotes, and notes; project footnotes get vertical breathing room.
 - Control borders now meet 3:1 contrast, and no interface text is smaller than `0.75rem`.
 - Spacing, type, radius, motion, and preview colors use shared tokens; responsive rules use 600, 860, and 1080px.
 - Spacing now follows three section tiers and three grid tiers, documented in `SPACING.md`; raw spacing is limited to optical and print exceptions.

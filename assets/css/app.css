@@ -2288,8 +2288,8 @@
 }
 
 .project-footnote {
-  max-width: 46rem;
-  margin-top: var(--space-7);
+  max-width: 62ch;
+  margin-block: var(--space-8);
   color: var(--ink-meta);
   font-size: var(--text-sm);
 }
@@ -2602,8 +2602,14 @@
 .theory p,
 .theory li,
 .theory .note,
+.goal p,
+.requirements li,
 .challenge-prompt,
-.project-related {
+.project-related,
+.project-body > p,
+.project-footnote,
+.planned-block > p,
+.data-note p {
   max-width: 62ch;
 }
 
