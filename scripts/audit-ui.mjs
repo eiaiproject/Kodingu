@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from './dev-server.mjs';
@@ -27,6 +27,11 @@ const PAGES = [
   { id: 'notfound', url: '/404.html' }
 ];
 
+const STATIC_PAGES = (await readdir(join(root, 'lessons')))
+  .filter((name) => name.endsWith('.html'))
+  .sort()
+  .map((name) => ({ id: name.replace(/\.html$/, ''), url: `/lessons/${name}` }));
+
 const SHOTS = new Set([
   'light:1280:home',
   'light:1280:catalog',
@@ -47,7 +52,7 @@ const SHOTS = new Set([
   'dark:390:progress'
 ]);
 
-const MEASURE = () => {
+const MEASURE = (options = {}) => {
   const vw = window.innerWidth;
   const visible = (el) => {
     const style = getComputedStyle(el);
@@ -244,19 +249,40 @@ const MEASURE = () => {
 
   const measureWideText = () => {
     const wideText = [];
-    for (const el of document.querySelectorAll(
-      '.theory p, .lede, .course-description, .challenge-prompt'
-    )) {
+    const selectors = [
+      '.theory p',
+      '.theory li',
+      '.goal p',
+      '.requirements li',
+      '.lede',
+      '.course-description',
+      '.challenge-prompt',
+      '.project-related',
+      '.project-body > p',
+      '.project-footnote',
+      '.planned-block > p',
+      '.data-note p'
+    ].join(', ');
+    for (const el of document.querySelectorAll(selectors)) {
       if (!visible(el)) continue;
-      const rect = el.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rects = [...range.getClientRects()].filter(
+        (rect) => rect.width > 1 && rect.height > 1
+      );
+      if (!rects.length) continue;
       const size = Number.parseFloat(getComputedStyle(el).fontSize);
-      const chars = rect.width / (size * 0.5);
+      if (!Number.isFinite(size) || size <= 0) continue;
+      const width = Math.max(...rects.map((rect) => rect.width));
+      const chars = width / (size * 0.5);
       if (chars > 80) {
-        wideText.push({ sel: selectorOf(el), chars: Math.round(chars), width: Math.round(rect.width) });
+        wideText.push({ sel: selectorOf(el), chars: Math.round(chars), width: Math.round(width) });
       }
     }
     return wideText;
   };
+
+  if (options.textOnly) return { wideText: measureWideText() };
 
   const duplicateIds = measureDuplicateIds();
   const outside = measureOverflow();
@@ -325,6 +351,27 @@ await runSeries(THEMES, async (theme) => {
     });
     await context.close();
   });
+});
+
+// Static reading pages share the typography but are not in PAGES above. They
+// read without JavaScript, so a lighter pass checks every one at three widths.
+const staticWide = [];
+await runSeries([1280, 768, 390], async (width) => {
+  const context = await browser.newContext({
+    viewport: { width, height: 900 },
+    serviceWorkers: 'block',
+    reducedMotion: 'reduce'
+  });
+  await context.addInitScript(() => localStorage.setItem('kodingu.theme', 'light'));
+  const page = await context.newPage();
+  await runSeries(STATIC_PAGES, async (target) => {
+    await page.goto(`${server.url}${target.url}`, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(80);
+    const metrics = await page.evaluate(MEASURE, { textOnly: true });
+    staticWide.push({ width, page: target.id, ...metrics });
+  });
+  await context.close();
 });
 
 // A 1024px tablet has a coarse pointer even though the width looks like desktop.
@@ -457,6 +504,7 @@ await browser.close();
 await server.close();
 
 await writeFile(join(outDir, 'report.json'), JSON.stringify(report, null, 2));
+await writeFile(join(outDir, 'static-wide.json'), JSON.stringify(staticWide, null, 2));
 
 const totals = {
   renders: report.length,
@@ -469,11 +517,19 @@ const totals = {
   asymmetricShells: report.reduce((sum, entry) => sum + entry.symmetry.shellMismatches.length, 0),
   gridGaps: report.reduce((sum, entry) => sum + entry.gridGaps.length, 0),
   wideText: report.filter((entry) => entry.wideText.length > 0).length,
+  staticPages: staticWide.length,
+  staticWideText: staticWide.reduce((sum, entry) => sum + entry.wideText.length, 0),
   focusIssues: focusIssues.length,
   reducedMotionTransition: reducedMotion
 };
 
 console.log(JSON.stringify(totals, null, 2));
+
+for (const entry of staticWide) {
+  if (!entry.wideText.length) continue;
+  const details = entry.wideText.map((item) => `${item.sel}:${item.chars}ch`).join(',');
+  console.log(`light ${entry.width} ${entry.page}: wide:${details}`);
+}
 
 for (const entry of report) {
   const gaps = entry.gridGaps
